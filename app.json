@@ -11,7 +11,9 @@
       "resizeMode": "contain",
       "backgroundColor": "#ffffff"
     },
+    "platforms": ["ios", "android"],
     "ios": {
+      "bundleIdentifier": "com.Belmont.Modista", 
       "supportsTablet": true
     },
     "android": {

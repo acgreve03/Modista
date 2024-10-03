@@ -6,6 +6,7 @@ import HomeScreen from '../screens/HomeScreen';
 import LoginScreen from '../screens/LoginScreen';
 import SignUpScreen from '../screens/SignUpScreen';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import Welcome from '../screens/Welcome';
 
 //import EditProfile from '../screens/Profile/EditProfile';
 
@@ -15,7 +16,10 @@ const Stack = createStackNavigator();
 const ProfileStack = () => {
     return (
       <Stack.Navigator>
-        <Stack.Screen name="UserProfile" component={UserProfile} />
+        <Stack.Screen 
+        name="UserProfile" 
+        component={UserProfile}
+        options={{ headerShown: false }} />
         {/* Add more screens within the Profile stack if needed */}
       </Stack.Navigator>
     );
@@ -28,7 +32,14 @@ const ProfileStack = () => {
         <Tab.Screen name="HomeScreen" component={HomeScreen} />
         <Tab.Screen name="UserProfile" component={ProfileStack} />
         <Tab.Screen name="Login" component={LoginScreen} />
-        <Tab.Screen name="SignUp" component={SignUpScreen} />
+        <Tab.Screen 
+          name="SignUp" 
+          component={SignUpScreen}
+          options={{ headerShown: false }} />
+        <Tab.Screen 
+          name="Welcome" 
+          component={Welcome}        
+          options={{ headerShown: false }}/>
       </Tab.Navigator>
     );
   };
