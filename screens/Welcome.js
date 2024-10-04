@@ -11,6 +11,10 @@ export default function WelcomeScreen({ navigation }) {
     navigation.navigate('Signup');
   };
 
+  const navLogin = () => {
+    navigation.navigate('Login'); // Navigate to Login screen
+  };
+
   return (
 
     <ImageBackground 
@@ -27,6 +31,7 @@ export default function WelcomeScreen({ navigation }) {
       <TouchableOpacity style={[buttonPressed ? styles.buttonPressed : styles.button]} 
         onPressIn={() => setButtonPressed(true)}
         onPressOut={() => setButtonPressed(false)} 
+        onPress={navLogin} // Navigate to Login screen
         activeOpacity={1}>
         <Text style={buttonPressed ? styles.buttonTextPressed : styles.buttonText}>log in</Text>
       </TouchableOpacity>
@@ -57,7 +62,7 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 50,
     color: 'white',
-    marginTop: 550,
+    marginTop: 500,
     textAlign: 'center',
     marginBottom: 35
   },
@@ -73,7 +78,7 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     paddingHorizontal: 20, 
     alignItems: 'center',
-    marginTop: 20,
+    marginTop: 10,
     width: '90%',
     alignSelf: 'center'
   },

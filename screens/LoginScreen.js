@@ -1,8 +1,13 @@
 import React, { useState } from 'react';
 import { View, Text, Image, TextInput, StyleSheet, TouchableOpacity, Alert } from 'react-native';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
+import { useNavigation } from '@react-navigation/native';
+import AppNavigator from '../navigation/AppNavigator';
+
 
 const LoginScreen = () => {
+
+  const navigation = useNavigation(); // Access navigation object
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -17,7 +22,10 @@ const LoginScreen = () => {
     setTimeout(() => {
       setLoading(false);
       Alert.alert('Login Successful', 'Welcome back!');
+      navigation.navigate('Main')
       // add navigation or futher login logic
+      // Navigate to AppTabs
+     
     }, 200); // Simulates login delay
   };
 
