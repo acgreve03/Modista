@@ -1,162 +1,198 @@
 import React, { useState } from 'react';
 import { View, Text, Image, TextInput, StyleSheet, TouchableOpacity, Alert } from 'react-native';
-import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import { useNavigation } from '@react-navigation/native';
-import AppNavigator from '../navigation/AppNavigator';
-
+import { signInWithEmailAndPassword } from 'firebase/auth';
+import { auth } from '../firebaseConfig';
+import { useForm, Controller } from 'react-hook-form';
 
 const LoginScreen = () => {
+  const navigation = useNavigation(); 
+  const {control, handleSubmit, formState: {errors}, watch} = useForm();
+  const [buttonPressed, setButtonPressed] = useState(false);
+  const email = watch('email');
 
-  const navigation = useNavigation(); // Access navigation object
-
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [loading, setLoading] = useState(false);
-  
-  const handleLogin = () => {
-    if (!email || !password) {
-      Alert.alert('Error', 'Please fill in both fields.');
-      return;
-    }
-    setLoading(true);
-    setTimeout(() => {
-      setLoading(false);
+  const onSubmit = async (data) => {
+    const {email, password} = data;
+    try{
+      await signInWithEmailAndPassword(auth, email, password);
       Alert.alert('Login Successful', 'Welcome back!');
-      navigation.navigate('Main')
-      // add navigation or futher login logic
-      // Navigate to AppTabs
-     
-    }, 200); // Simulates login delay
+      navigation.navigate('Main');
+    } catch (err) {
+      Alert.alert('Login Error', err.message);
+    }
   };
 
-    return (
-      <View style = {styles.container}>
-        <Image
-          source={{ uri: 'https://via.placeholder.com/75' }}
-          style={styles.avatar}
-        />
-        <MaterialCommunityIcons
-          name="arrow-left"
-          size={30}
-          color="black"
-          style={styles.arrow}
-        />
+  return (
+    <View style = {styles.container}>
+      <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
+        <Text style={styles.backButtonText}>←</Text>
+      </TouchableOpacity>
+      
+      <Text style = {styles.title}>Welcome Back</Text>
+      <Text style={styles.subtitle}>Login to continue with Modista</Text>
 
-        <Text style = {styles.title}>Sign in</Text>
-
-        <TextInput
-          style={styles.input}
-          placeholder="Email"
-          placeholderTextColor="#aaa"
-          value={email}
-          onChangeText={setEmail}
-          keyboardType="email-address"
+    <View style={styles.inputWrapper}>
+      <Controller
+        control = {control}
+        rules = {{
+          required: "Email is required.",
+          pattern: {
+            value: /^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$/,
+            message: "Enter a valid email address",
+          },
+        }}
+        render={({field: {onChange, onBlur, value}}) => (
+          <TextInput
+            style={styles.inputWithLine}
+            placeholder='Email'
+            placeholderTextColor="#aaa"
+            value={value}
+            onChangeText={onChange}
+            onBlur={onBlur}
           />
+        )}
+        name="email"
+        defaultValue=""
+      />
+      {errors.email && <Text style={styles.error}>{errors.email.message}</Text>}
+    </View>
 
-        <TextInput
-        style={styles.input}
-        placeholder="Password"
-        placeholderTextColor="#aaa"
-        value={password}
-        onChangeText={setPassword}
-        secureTextEntry
+    <View style={styles.inputWrapper}>
+      <Controller
+        control={control}
+        rules={{
+          required: "Password is required.",
+          minLength: {
+            value: 6,
+            message: "Password must be at least 6 characters long",
+          },
+        }}
+        render={({field: {onChange, onBlur, value}}) => (
+          <TextInput
+            style={styles.inputWithLine}
+            placeholder='Password'
+            placeholderTextColor="#aaa"
+            value={value}
+            onChangeText={onChange}
+            onBlur={onBlur}
+            secureTextEntry
         />
+      )}
+      name="password"
+      defaultValue=""
+    />
+      {errors.password && <Text style={styles.error}>{errors.password.message}</Text>}
+    </View>
 
-        <TouchableOpacity onPress={() => Alert.alert('Sign Up Page')}>
-          <Text style={styles.subtitle}>New Here? Sign Up</Text>
-        </TouchableOpacity>
+    <TouchableOpacity onPress={() => navigation.navigate('ForgotPassword')}>
+      <Text style={styles.forgotPassword}>Forgot your password?</Text>
+    </TouchableOpacity>
 
-        <TouchableOpacity onPress={() => Alert.alert('Forgot Password')}>
-          <Text style={styles.forgotPassword}>Forgot your password?</Text>
-        </TouchableOpacity>
+    <TouchableOpacity
+     style={[styles.button, buttonPressed ? styles.buttonPressed : styles.buttonDefault]}
+     onPressIn={() => setButtonPressed(true)}
+     onPressOut={() => setButtonPressed(false)}
+     onPress={handleSubmit(onSubmit)}
+     activeOpacity={1}
+     >
+      <Text style={buttonPressed ? styles.buttonTextPressed : styles.buttonText}>
+        Continue
+      </Text>
+    </TouchableOpacity>
 
-        <TouchableOpacity style={styles.button} onPress={handleLogin}>
-          <Text style={styles.buttonText}>
-            {loading ? 'Logging in...' : 'Login'}
-          </Text>
-        </TouchableOpacity>
-      </View>
-    );
+    <Text style={{textAlign: 'center', marginTop: 10}}>New Here?
+      <Text style={{color: 'purple'}} onPress={() => navigation.navigate('SignUp')}> Sign Up</Text>
+    </Text>
+  </View>
+  );
 };
 
 const styles = StyleSheet.create({
-    arrow: {
-      position: 'absolute',
-      top: 20,
-      left: 20,
-      transform: [{scaleX: 1.3}],
-    },
-    avatar: {
-      width: 75,
-      height: 75,
-      borderRadius: 50, // Makes the image circular
-      marginTop: -10,
-      position: 'absolute',
-      top: 30,
-      right: 20,
-    },
-    container: {
-      flex: 1,
-      justifyContent: 'center',
-      paddingHorizontal: 30,
-      paddingVertical: 20,
-    },
-    title: {
-      fontSize: 30,
-      fontWeight: '600',
-      color: 'black',
-      position: 'absolute',
-      top: 20,
-      left: 20,
-      marginBottom: 40,
-      marginTop: 40,
-    },
-    subtitle: {
-      fontSize: 14,
-      fontStyle: 'italic',
-      color: 'purple',
-      position: 'absolute',
-      top: -300,
-      left: -10,
-      marginTop: -10,
-      marginBottom: 50,
-    },
-    input: {
-      height: 50,
-      borderBottomColor: 'purple',
-      borderBottomWidth: 0.5,
-      paddingTop: 15,
-      marginBottom: 40,
-      fontSize: 16,
-      backgroundColor: 'transparent',
-      width: '105%',
-      alignSelf: 'center',
-    },
-    button: {
-      width: 150,
-      borderColor: 'purple',
-      borderWidth: 1,
-      paddingVertical: 15,
-      borderRadius: 4,
-      alignSelf: 'center',
-      backgroundColor: 'transparent',
-      marginTop: 20,
-    },
-    buttonText: {
-      color: 'purple',
-      fontSize: 22,
-      textAlign: 'center',
-    },
-    forgotPassword: {
-      color: 'purple',
-      fontSize: 16,
-      fontStyle: "italic",
-      textAlign: 'left',
-      marginLeft: -10,
-      marginTop: -25,
-      marginBottom: 40,
-    },
-  });
+  container: {
+    flex: 1,
+    padding: 16,
+    backgroundColor: '#ffff',
+  },
+  backButton: {
+    position: 'absolute',
+    top: 50,
+    left: 20,
+    padding: 10,
+    backgroundColor: 'transparent',
+    borderRadius: 5,
+    marginTop: 5,
+  },
+  backButtonText: {
+    position: 'absolute',
+    color: 'black',
+    fontSize: 25,
+    marginTop: 8,
+  },
+  title: {
+    fontSize: 25,
+    fontWeight: 'regular',
+    marginBottom: 8,
+    marginTop: 115,
+    textAlign: 'left',
+    fontFamily: 'Helvetica',
+  },
+  subtitle: {
+    fontSize: 15,
+    textAlign: 'left',
+    fontWeight: 'thin',
+    fontFamily: 'Helvetica',
+    marginBottom: 30,
+  },
+  inputWrapper: {
+    marginBottom: 30,
+  },
+  inputWithLine: {
+    height: 40,
+    borderBottomWidth: 1,
+    borderBottomColor: '#cccc',
+    paddingHorizontal: 8,
+    marginBottom: 10,
+  },
+  forgotPassword: {
+    color: 'purple',
+    fontSize: 16,
+    fontStyle: "italic",
+    textAlign: 'left',
+    marginBottom: 80,
+    marginTop: -20,
+  },
+  button: {
+    width: '90%',
+    borderColor: 'purple',
+    borderWidth: 1,
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    alignSelf: 'center',
+    alignItems: 'center',
+    backgroundColor: 'transparent',
+    marginTop: 20,
+  },
+  buttonDefault: {
+    backgroundColor: 'transparent',
+  },
+  buttonText: {
+    color: 'purple',
+    fontSize: 15,
+    fontWeight: 'regular',
+    fontFamily: "Helvetica",
+  },
+  buttonTextPressed: {
+    color: 'white',
+    fontSize: 15,
+    fontWeight: 'regular',
+    fontFamily: 'Helvetica',
+  },
+  error: {
+    color: 'red',
+    marginLeft: 1,
+    marginTop: -8,
+  },
+});
   
-  export default LoginScreen;
+export default LoginScreen;
   

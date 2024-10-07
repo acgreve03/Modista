@@ -11,6 +11,7 @@ import UserProfile from '../screens/Profile/UserProfile';
 import Welcome from '../screens/Welcome';
 import LoginScreen from '../screens/LoginScreen';
 import SignUpScreen from '../screens/SignUpScreen';
+import ForgotPasswordScreen from '../screens/ForgotPasswordScreen';
 
 // Define the navigators
 const Tab = createBottomTabNavigator();
@@ -23,6 +24,7 @@ const AuthStackNavigator = () => {
       <Stack.Screen name="Welcome" component={Welcome} />
       <Stack.Screen name="Login" component={LoginScreen} />
       <Stack.Screen name="SignUp" component={SignUpScreen} />
+      <Stack.Screen name="ForgotPassword" component={ForgotPasswordScreen}/>
     </Stack.Navigator>
   );
 };

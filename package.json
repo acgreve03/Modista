@@ -24,7 +24,6 @@
     "firebase": "^10.13.2",
     "gestalt": "^159.10.2",
     "latest": "^0.2.0",
-    "n": "^10.0.0",
     "react": "18.2.0",
     "react-dom": "18.2.0",
     "react-hook-form": "^7.53.0",
@@ -38,6 +37,7 @@
     "react-native-vector-icons": "^10.2.0",
     "react-native-web": "~0.19.10"
   },
+  "optionalDependencies": {"n": "^10.0.0"},
   "devDependencies": {
     "@babel/core": "^7.20.0"
   },

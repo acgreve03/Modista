@@ -8,7 +8,7 @@ export default function WelcomeScreen({ navigation }) {
   const [buttonPressed2, setButtonPressed2] = useState(false);
 
   const navSignup = () => {
-    navigation.navigate('Signup');
+    navigation.navigate('SignUp');
   };
 
   const navLogin = () => {
