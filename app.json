@@ -1,0 +1,32 @@
+{
+  "expo": {
+    "name": "Modista2",
+    "slug": "Modista2",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": null,
+    "userInterfaceStyle": "light",
+    "splash": {
+      "image": null,
+      "resizeMode": "contain",
+      "backgroundColor": "#ffffff"
+    },
+    "platforms": ["ios", "android"],
+    "ios": {
+      "bundleIdentifier": "com.Belmont.Modista", 
+      "supportsTablet": true
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": null,
+        "backgroundColor": "#ffffff"
+      }
+    },
+    "web": {
+      "favicon": null
+    },
+    "packagerOpts": {
+      "sourceExts": ["js", "json", "ts", "tsx", "jsx", "vue"]
+    }
+  }
+}
