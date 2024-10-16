@@ -4,16 +4,23 @@ import { sendPasswordResetEmail } from 'firebase/auth';
 import { auth } from '../firebaseConfig';
 import { useForm, Controller } from 'react-hook-form';
 
+/**
+ * This component handles the password reset process for a user's account
+ * It uses React Hook Form for managing the input and Firebase Authentication
+ * to send a password reset link to the user's email
+ */
 const ForgotPasswordScreen = ({ navigation }) => {
   const { control, handleSubmit, formState: { errors } } = useForm();
 
   const onSubmit = async (data) => {
     const { email } = data;
     try {
+      //Sends password reset email using Firebase
       await sendPasswordResetEmail(auth, email)
       Alert.alert('Success', 'Check your email for a link to reset your password.');
-      navigation.goBack();
+      navigation.goBack(); //Returns to the login screen after sending the email
     } catch (err) {
+      //Shows an error alert if the email couldn't be sent
       Alert.alert('Error', err.message);
     }
   };
@@ -23,6 +30,7 @@ const ForgotPasswordScreen = ({ navigation }) => {
       <Text style={styles.title}>Forgot Password</Text>
       <Text style={styles.subtitle}>Enter your email to reset your password.</Text>
 
+      {/* Email input field */}
       <View style={styles.inputWrapper}>
         <Controller
           control={control}
@@ -46,13 +54,16 @@ const ForgotPasswordScreen = ({ navigation }) => {
           name="email"
           defaultValue=""
         />
+        {/* Displays validation errors for email input */}
         {errors.email && <Text style={styles.error}>{errors.email.message}</Text>}
       </View>
-
+      
+      {/* Button to send the reset email */}
       <TouchableOpacity style={styles.button} onPress={handleSubmit(onSubmit)}>
         <Text style={styles.buttonText}>Send Reset Link</Text>
       </TouchableOpacity>
 
+      {/* Navigation to go back to the Login screen */}
       <TouchableOpacity onPress={() => navigation.goBack()}>
         <Text style={styles.backToLogin}>Back to Login</Text>
       </TouchableOpacity>
@@ -60,6 +71,7 @@ const ForgotPasswordScreen = ({ navigation }) => {
   );
 };
 
+//Customizations and layouts for the screen page and its components
 const styles = StyleSheet.create({
   container: {
     flex: 1,

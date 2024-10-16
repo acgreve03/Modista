@@ -5,25 +5,34 @@ import { signInWithEmailAndPassword } from 'firebase/auth';
 import { auth } from '../firebaseConfig';
 import { useForm, Controller } from 'react-hook-form';
 
+/**
+ * This component handles user login with email and password authentication
+ * It uses React Hook Form for form handling, validation, and Firebase Authentication
+ * for user login.
+ */
 const LoginScreen = () => {
   const navigation = useNavigation(); 
   const {control, handleSubmit, formState: {errors}, watch} = useForm();
   const [buttonPressed, setButtonPressed] = useState(false);
   const email = watch('email');
 
+  //Handles login process upon form form submission
   const onSubmit = async (data) => {
     const {email, password} = data;
     try{
+      //Attempts to sign in using Firebase Authentication
       await signInWithEmailAndPassword(auth, email, password);
       Alert.alert('Login Successful', 'Welcome back!');
-      navigation.navigate('Main');
+      navigation.navigate('Main'); //Navigates to main screen upon successful login
     } catch (err) {
+      //Shows error message if login fails
       Alert.alert('Login Error', err.message);
     }
   };
 
   return (
     <View style = {styles.container}>
+      {/* Back button to go back to the previous screen (welcome screen) */}
       <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
         <Text style={styles.backButtonText}>←</Text>
       </TouchableOpacity>
@@ -31,6 +40,7 @@ const LoginScreen = () => {
       <Text style = {styles.title}>Welcome Back</Text>
       <Text style={styles.subtitle}>Login to continue with Modista</Text>
 
+    {/* Email input */}
     <View style={styles.inputWrapper}>
       <Controller
         control = {control}
@@ -54,9 +64,11 @@ const LoginScreen = () => {
         name="email"
         defaultValue=""
       />
+      {/* Displays email validation error */}
       {errors.email && <Text style={styles.error}>{errors.email.message}</Text>}
     </View>
 
+    {/* Password input */}
     <View style={styles.inputWrapper}>
       <Controller
         control={control}
@@ -81,13 +93,16 @@ const LoginScreen = () => {
       name="password"
       defaultValue=""
     />
+      {/* Displays password validation error */}
       {errors.password && <Text style={styles.error}>{errors.password.message}</Text>}
     </View>
 
+    {/*Forgot password navigation */}
     <TouchableOpacity onPress={() => navigation.navigate('ForgotPassword')}>
       <Text style={styles.forgotPassword}>Forgot your password?</Text>
     </TouchableOpacity>
 
+    {/* Login button */}
     <TouchableOpacity
      style={[styles.button, buttonPressed ? styles.buttonPressed : styles.buttonDefault]}
      onPressIn={() => setButtonPressed(true)}
@@ -100,6 +115,7 @@ const LoginScreen = () => {
       </Text>
     </TouchableOpacity>
 
+    {/* Sign Up navigation */}
     <Text style={{textAlign: 'center', marginTop: 10}}>New Here?
       <Text style={{color: 'purple'}} onPress={() => navigation.navigate('SignUp')}> Sign Up</Text>
     </Text>
@@ -107,6 +123,7 @@ const LoginScreen = () => {
   );
 };
 
+//Customization and layouts for the screen page and its components
 const styles = StyleSheet.create({
   container: {
     flex: 1,
