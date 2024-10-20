@@ -1,7 +1,6 @@
 import React, {useState} from 'react';
-import { View, Image, Text, StyleSheet, TextInput, Button, Alert, TouchableOpacity} from 'react-native';
+import { View, Text, StyleSheet, TextInput, Alert, TouchableOpacity} from 'react-native';
 import { useForm, Controller } from 'react-hook-form';
-import { firebase } from '../firebaseConfig';
 import { auth } from '../firebaseConfig';
 import { createUserWithEmailAndPassword } from 'firebase/auth';
 
@@ -11,16 +10,6 @@ export default function SignupScreen({ navigation }) {
   const [buttonPressed, setButtonPressed] = useState(false);
   const [password, setPassword] = useState('');
 
-  
-  const onSubmit = async (data) => {
-    const { email, password } = data;
-    try {
-      await createUserWithEmailAndPassword(auth, email, password);
-      Alert.alert("Signup Successful", "You have successfully signed up!");
-    } catch (error) {
-      Alert.alert("Signup Error", error.message);
-    }
-  };
 
   const passwordRequirements = {
     length: password.length >= 8,
@@ -29,6 +18,30 @@ export default function SignupScreen({ navigation }) {
     number: /\d/.test(password),
     specialChar: /[!@#$%^&*(),.?":{}|<>]/.test(password)
   };
+  
+
+  const onSubmit = async (data) => {
+    const { email, password } = data;
+
+    //Checking if password meets requirements
+    if (!passwordRequirements.length ||
+      !passwordRequirements.uppercase ||
+      !passwordRequirements.lowercase ||
+      !passwordRequirements.number ||
+      !passwordRequirements.specialChar)
+ {
+    Alert.alert("Invalid Password", "Password must meet all requirements.");
+    return;
+  }
+    //Creating user using firebase authentication
+    try {
+      const user = await createUserWithEmailAndPassword(auth, email, password);
+      navigation.navigate('ProfileCreation', { user: user }); //Routing the created user to profile creation
+    } catch (error) {
+      Alert.alert("Signup Error");
+    }
+  };
+
 
   return (
     <View style={styles.container}>
@@ -42,51 +55,35 @@ export default function SignupScreen({ navigation }) {
       <Text style={styles.subtitle}>Create an account to get started with Modista</Text>
 
 
-      <View style={styles.inputWrapper}> 
-      <Controller
-        control={control}
-        rules={{ required: true }}
-        render={({ field: { onChange, onBlur, value } }) => (
-          <TextInput
-            style={styles.inputWithLine}
-            placeholder="Name"
-            onBlur={onBlur}
-            onChangeText={onChange}
-            value={value}
-          />
-        )}
-        name="name"
-        defaultValue=""
-      />
-      {errors.name && <Text style={styles.error}>Name is required.</Text>}
+      {/* Email */}
+      <View style={styles.inputContainer}> 
+        <Controller
+          control={control}
+          rules={{
+            required: true,
+            pattern: {
+              value: /^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$/,
+              message: "Enter a valid email address",
+            },
+          }}
+          render={({ field: { onChange, onBlur, value } }) => (
+            <TextInput
+              style={styles.inputWithLine}
+              placeholder="Email"
+              onBlur={onBlur}
+              onChangeText={onChange}
+              value={value}
+            />
+          )}
+          name="email"
+          defaultValue=""
+        />
+        {errors.email && <Text style={styles.error}> {errors.email.message || "Email is required."}</Text>}
       </View>
 
-      <View style={styles.inputWrapper}> 
-      <Controller
-        control={control}
-        rules={{
-          required: true,
-          pattern: {
-            value: /^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$/,
-            message: "Enter a valid email address",
-          },
-        }}
-        render={({ field: { onChange, onBlur, value } }) => (
-          <TextInput
-            style={styles.inputWithLine}
-            placeholder="Email"
-            onBlur={onBlur}
-            onChangeText={onChange}
-            value={value}
-          />
-        )}
-        name="email"
-        defaultValue=""
-      />
-        {errors.email && <Text style={styles.error}>{errors.email.message || "Email is required."}</Text>}
-      </View>
 
-      <View style={styles.inputWrapper}>      
+      {/* Password */}
+      <View style={styles.inputContainer}>      
         <Controller
           control={control}
           rules={{ required: true}}
@@ -106,56 +103,43 @@ export default function SignupScreen({ navigation }) {
           name="password"
           defaultValue=""
         />
-        {errors.password && <Text style={styles.error}>Password must be at least 6 characters.</Text>}
+        {errors.password && <Text style={styles.error}> Please enter a valid password.</Text>}
       </View>
 
 
       <View style={styles.passwordRequirementsContainer}>
-        <Text style={[styles.requirement, passwordRequirements.length ? styles.met : styles.notMet]}>
-          ✓ At least 6 characters
+        <Text style={[styles.requirement, passwordRequirements.length ? styles.metRequirement : styles.requirement]}>
+          ✓ At least 8 characters
         </Text>
-        <Text style={[styles.requirement, passwordRequirements.uppercase ? styles.met : styles.notMet]}>
+        <Text style={[styles.requirement, passwordRequirements.uppercase ? styles.metRequirement : styles.requirement]}>
           ✓ Contains an uppercase letter
         </Text>
-        <Text style={[styles.requirement, passwordRequirements.lowercase ? styles.met : styles.notMet]}>
+        <Text style={[styles.requirement, passwordRequirements.lowercase ? styles.metRequirement : styles.requirement]}>
           ✓ Contains a lowercase letter
         </Text>
-        <Text style={[styles.requirement, passwordRequirements.number ? styles.met : styles.notMet]}>
+        <Text style={[styles.requirement, passwordRequirements.number ? styles.metRequirement : styles.requirement]}>
           ✓ Contains a number
         </Text>
-        <Text style={[styles.requirement, passwordRequirements.specialChar ? styles.met : styles.notMet]}>
+        <Text style={[styles.requirement, passwordRequirements.specialChar ? styles.metRequirement : styles.requirement]}>
           ✓ Contains a special character
         </Text>
       </View>
 
 
-      <TouchableOpacity style={[styles.button, buttonPressed ? styles.buttonPressed : styles.buttonDefault]} 
+      <TouchableOpacity style={[styles.button, buttonPressed ? styles.buttonPressed : styles.button]} 
           onPressIn={() => setButtonPressed(true)}
           onPressOut={() => setButtonPressed(false)} 
           onPress={handleSubmit(onSubmit)}
           activeOpacity={1}>
           <Text style={buttonPressed ? styles.buttonTextPressed : styles.buttonText}>Continue</Text>
       </TouchableOpacity>
-      <Text style={{textAlign:'center', top:780, left:145, position:'absolute'}}>Next: Profile Creation</Text>
+
     </View>
   );
 }
 
+
 const styles = StyleSheet.create({
-    avatar: {
-      width: 150,
-      height: 150,
-      borderRadius: 75, 
-      marginBottom: 10,
-    },
-    name: {
-      fontSize: 24,
-      fontWeight: 'bold',
-    },
-    bio: {
-      fontSize: 16,
-      textAlign: 'center',
-    },
     subtitle: {
       fontSize: 15,
       textAlign: 'left',
@@ -175,13 +159,6 @@ const styles = StyleSheet.create({
       marginBottom: 8,
       textAlign: 'left',
       fontFamily: 'Helvetica'
-    },
-    input: {
-      height: 40,
-      borderColor: '#ccc',
-      borderWidth: 1,
-      marginBottom: 12,
-      paddingHorizontal: 8,
     },
     error: {
       color: 'red',
@@ -204,8 +181,8 @@ const styles = StyleSheet.create({
       alignItems: 'center',
       marginTop: 220, 
       position: 'absolute',
-      bottom: 70,
-      width: '90%',
+      bottom: 90,
+      width: '95%',
       alignSelf: 'center'
     },
     buttonText: {
@@ -213,9 +190,6 @@ const styles = StyleSheet.create({
       fontSize: 15, 
       fontWeight: 'regular', 
       fontFamily: "Helvetica"
-    },
-    buttonDefault: {
-      backgroundColor: 'transparent', 
     },
     buttonPressed: {
       borderWidth: 1,
@@ -234,12 +208,10 @@ const styles = StyleSheet.create({
     requirement: {
       fontSize: 14,
       marginVertical: 5,
+      color: 'gray'
     },
-    met: {
+    metRequirement: {
       color: 'purple', 
-    },
-    notMet: {
-      color: 'gray', 
     },
     backButton: {
       position: 'absolute',
@@ -256,7 +228,7 @@ const styles = StyleSheet.create({
       fontSize: 25,
       marginTop: 8
     },
-    inputWrapper: {
+    inputContainer: {
       marginBottom: 30,
     },
   });
