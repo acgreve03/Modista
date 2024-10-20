@@ -1,6 +1,6 @@
 import React from 'react';
 import {useState} from 'react';
-import { View, Image, Text, StyleSheet, ImageBackground, TouchableOpacity} from 'react-native';
+import { Text, StyleSheet, ImageBackground, TouchableOpacity} from 'react-native';
 
 export default function WelcomeScreen({ navigation }) {
 
@@ -8,7 +8,7 @@ export default function WelcomeScreen({ navigation }) {
   const [buttonPressed2, setButtonPressed2] = useState(false);
 
   const navSignup = () => {
-    navigation.navigate('Signup');
+    navigation.navigate('SignUp'); // Navigate to SignUp screen
   };
 
   const navLogin = () => {
@@ -22,20 +22,21 @@ export default function WelcomeScreen({ navigation }) {
     style={styles.background}
     resizeMode="cover"
     >
-      <Text style={styles.name}>      </Text>
-      <Text style={styles.name}>      </Text>
-      <Text style={styles.name}>      </Text>
-      <Text style={styles.name}>      </Text>
+
       <Text style={styles.title}>MODISTA</Text>
 
+
+      {/* Login Button */}
       <TouchableOpacity style={[buttonPressed ? styles.buttonPressed : styles.button]} 
         onPressIn={() => setButtonPressed(true)}
         onPressOut={() => setButtonPressed(false)} 
-        onPress={navLogin} // Navigate to Login screen
+        onPress={navLogin}
         activeOpacity={1}>
         <Text style={buttonPressed ? styles.buttonTextPressed : styles.buttonText}>log in</Text>
       </TouchableOpacity>
 
+
+      {/* SignUp Button */}
       <TouchableOpacity style={[buttonPressed2 ? styles.buttonPressed : styles.button]} 
         onPressIn={() => setButtonPressed2(true)}
         onPressOut={() => setButtonPressed2(false)} 
@@ -49,22 +50,13 @@ export default function WelcomeScreen({ navigation }) {
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 20,
-  },
-  name: {
-    fontSize: 24,
-    fontWeight: 'bold',
-  },
   title: {
     fontSize: 50,
     color: 'white',
     marginTop: 500,
     textAlign: 'center',
-    marginBottom: 35
+    marginBottom: 35,
+    top: 140,
   },
   background: {
     flex: 1,
@@ -80,7 +72,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginTop: 10,
     width: '90%',
-    alignSelf: 'center'
+    alignSelf: 'center',
+    top: 140
   },
   buttonText: {
     color: "white",
@@ -92,6 +85,13 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "white",
     backgroundColor: "white",
+    paddingVertical: 12,
+    paddingHorizontal: 20, 
+    alignItems: 'center',
+    marginTop: 10,
+    width: '90%',
+    alignSelf: 'center',
+    top: 140
   },
   buttonTextPressed: {
     fontSize: 15, 
