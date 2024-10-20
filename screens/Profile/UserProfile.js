@@ -1,21 +1,60 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, Image, TouchableOpacity } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, StyleSheet, Image, TouchableOpacity, ActivityIndicator } from 'react-native';
 import Outfits from './Outfits'; // Import the OutfitsGrid component
 import Closet from './Closet'; // Import the Closet component
 import Saved from './Saved'; // Import the Closet component
+import { doc, getDoc } from 'firebase/firestore';
+import { db } from '../../firebaseConfig';
+import { auth } from '../../firebaseConfig';
 
 const UserProfile = () => {
+
+  const [userProfile, setUserProfile] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [selectedTab, setSelectedTab] = useState('Outfits');
+
+  //Loadin screen
+  if (loading) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="purple" />
+        <Text>Loading profile...</Text>
+      </View>
+    );
+  }
+
+  //Fetching user's data
+  useEffect(() => {
+    const fetchUserProfile = async () => {
+      const user = auth.currentUser; // Get the current logged-in user
+      if (user) {
+        const userRef = doc(db, 'users', user.uid); // Reference to the user's document
+        const docSnap = await getDoc(userRef); // Get the document snapshot
+
+        if (docSnap.exists()) {
+          setUserProfile(docSnap.data()); // Set the user profile data
+        } else {
+          console.log('No such document!');
+        }
+      }
+      setLoading(false);
+    };
+
+    fetchUserProfile();
+  }, []);
+
+
+    //Display user data or default values.
     const userData = {
-        name: 'Jane Doe',
-        bio: 'Fashion Enthusiast, Stylist',
-        username: 'jane.doe',
-        followers: 0,
-        following: 0,
-        profilePicture: 'https://via.placeholder.com/150', // Replace with a valid image URL
+        name: `${userProfile?.firstName} ${userProfile?.lastName}`,
+        bio: userProfile?.bio || 'Modista User',
+        username: userProfile?.userName,
+        followers: userProfile?.followers || 0,
+        following: userProfile?.following || 0,
+        profilePicture: userProfile?.profilePictureUrl || 'https://via.placeholder.com/150',
         headerImage: 'https://via.placeholder.com/600x200', // Placeholder for header image
     };
 
-    const [selectedTab, setSelectedTab] = useState('Outfits');
 
     // Tab content rendering
     const renderTabContent = () => {
@@ -82,6 +121,11 @@ const styles = StyleSheet.create({
       flex: 1,
       backgroundColor: 'white',
       alignItems: 'center',
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   headerContainer: {
       width: '100%',
