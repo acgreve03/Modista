@@ -13,16 +13,6 @@ const UserProfile = () => {
   const [loading, setLoading] = useState(true);
   const [selectedTab, setSelectedTab] = useState('Outfits');
 
-  //Loadin screen
-  if (loading) {
-    return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="purple" />
-        <Text>Loading profile...</Text>
-      </View>
-    );
-  }
-
   //Fetching user's data
   useEffect(() => {
     const fetchUserProfile = async () => {
@@ -43,6 +33,15 @@ const UserProfile = () => {
     fetchUserProfile();
   }, []);
 
+    //Loading screen
+    if (loading) {
+      return (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="purple" />
+          <Text>Loading profile...</Text>
+        </View>
+      );
+    }
 
     //Display user data or default values.
     const userData = {
