@@ -13,6 +13,7 @@ import UserProfile from '../screens/Profile/UserProfile';
 import Welcome from '../screens/Welcome';
 import LoginScreen from '../screens/LoginScreen';
 import SignUpScreen from '../screens/SignUpScreen';
+import ForgotPasswordScreen from '../screens/ForgotPasswordScreen';
 import ProfileCreation from '../screens/Profile/ProfileCreation';
 
 // Create the Tab Navigator for the Main Page
@@ -66,6 +67,7 @@ function App() {
       >
         <Stack.Screen name="Welcome" component={Welcome} />
         <Stack.Screen name="Login" component={LoginScreen} />
+        <Stack.Screen name="ForgotPassword" component={ForgotPasswordScreen} />
         <Stack.Screen name="SignUp" component={SignUpScreen} /> 
         <Stack.Screen name="ProfileCreation" component={ProfileCreation} />
         <Stack.Screen name="Main" component={MainTabs} />

@@ -4,7 +4,7 @@ import { useForm, Controller } from 'react-hook-form';
 import { auth } from '../firebaseConfig';
 import { createUserWithEmailAndPassword } from 'firebase/auth';
 
-export default function SignupScreen({ navigation }) {
+export default function SignUpScreen({ navigation }) {
 
   const { control, handleSubmit, formState: { errors } } = useForm();
   const [buttonPressed, setButtonPressed] = useState(false);

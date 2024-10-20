@@ -7,31 +7,29 @@ StyleSheet: For creating styles.
 Dimensions: For getting the width and height of the screen. */
 
 import React from 'react';
-import { View, StyleSheet, Dimensions} from 'react-native';
-import MasonryList from 'react-native-masonry-list';
+import { View, FlatList, Image, StyleSheet, Dimensions } from 'react-native';
 import Pin from '../components/Pin'; // Import Pin component from components folder
-import pinData from '../data/PinData'
+import pinData from '../data/PinData';
 
 
 //HomeScreen functional component
 const HomeScreen = () => {
-
-  const renderPin = (pin) => {
-    return <Pin imageUrl={pin.uri} />;
+  const renderPin = ({ item }) => {
+    return(
+      <View style={styles.pinContainer}>
+        <Image source={{ uri: item.imageUrl }} style={styles.pinImage} />
+      </View>
+    ); 
   };
 
   return (
     <View style={styles.container}>
-      {/* Masonry List */}
-      <MasonryList
-        images={pinData.map(pin => ({
-          uri: pin.imageUrl,
-          id: pin.id,
-        }))}
-        columns={2} // Number of columns in the Masonry grid
-        spacing={5} // Spacing between images
-        showsVerticalScrollIndicator={false}
-        customRenderItem={renderPin} // Use the custom render function
+      <FlatList
+        data={pinData} // Directly pass pinData to FlatList
+        renderItem={renderPin} // Use renderPin for each item
+        keyExtractor={item => item.id.toString()} // Ensure unique keys
+        numColumns={2} // Set number of columns like Masonry
+        columnWrapperStyle={styles.columnWrapper} // Adjust column spacing
       />
     </View>
   );
@@ -42,8 +40,28 @@ const screenWidth = Dimensions.get('window').width;
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    padding: 10,
+    padding: 20,
     backgroundColor: '#fff',
+  },
+
+  pinContainer: {
+    flex: 1,
+    marginBottom: 10, // Adjust spacing between rows
+    marginHorizontal: 5,
+    backgroundColor: '#f3f3f3',
+    borderRadius: 20,
+    overflow: 'hidden',
+  },
+
+  pinImage: {
+    width: '100%', // Ensure the image fills the width of the container
+    aspectRatio: 2 / 3, // Maintain a 2:3 aspect ratio (adjust based on your needs)
+  }, 
+
+  columnWrapper: {
+    justifyContent: 'space-between', // This adds spacing between the columns
+    marginBottom: 10, // Adjusts vertical spacing between rows
+    paddingHorizontal: 0,
   },
 });
 
