@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@expo/metro-runtime": "~3.2.3",
+    "@google-cloud/vision": "^4.3.2",
     "@react-native-async-storage/async-storage": "^1.24.0",
     "@react-native-community/masked-view": "^0.1.11",
     "@react-native-firebase/app": "^20.5.0",
@@ -37,7 +38,9 @@
     "react-native-vector-icons": "^10.2.0",
     "react-native-web": "~0.19.10"
   },
-  "optionalDependencies": {"n": "^10.0.0"},
+  "optionalDependencies": {
+    "n": "^10.0.0"
+  },
   "devDependencies": {
     "@babel/core": "^7.20.0"
   },
