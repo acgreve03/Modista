@@ -15,6 +15,10 @@ export default function AddToCloset({navigation}) {
     const [closetItemUrl, setClosetItemUrl] = useState(null);
     const [loading, setLoading] = useState(false);
     const [user, setUser] = useState(null);
+    const [color, setColor] = useState('');
+    const [subcategory, setSubcategory] = useState('');
+    const [occasion, setOccasion] = useState('');
+    const [season, setSeason] = useState('');
   
   
     useEffect(() => {
@@ -46,7 +50,12 @@ export default function AddToCloset({navigation}) {
           // Add the item data to the document
               setLoading(true);
               await addDoc(closetRef, {
+              color,
+              subcategory,
+              occasion,
+              season,  
               closetItemUrl: closetItemUrl //Url which leads to the actual image location
+
               });
   
               //Uploading the actual image to firestore
@@ -162,6 +171,46 @@ export default function AddToCloset({navigation}) {
           <Ionicons name="image" size='40' color={'purple'}></Ionicons>
         </TouchableOpacity>
 
+
+        <TextInput
+            style={{
+                position: 'relative',
+                top: 180
+            }}
+            placeholder="color"
+            value={color}
+            onChangeText={setColor}
+        />
+        <TextInput
+            style={{
+                position: 'relative',
+                top: 180
+            }}
+            placeholder="subcategory"
+            value={subcategory}
+            onChangeText={setSubcategory}
+        />
+        <TextInput
+            style={{
+                position: 'relative',
+                top: 180
+            }}
+            placeholder="occasion"
+            value={occasion}
+            onChangeText={setOccasion}
+            multiline
+        />
+        <TextInput
+            style={{
+                position: 'relative',
+                top: 180
+            }}
+            placeholder="season"
+            value={season}
+            onChangeText={setSeason}
+            multiline
+        />
+
         <View
         style={{
             borderRadius: 50,
@@ -174,7 +223,8 @@ export default function AddToCloset({navigation}) {
             alignItems: 'center',
             overflow: 'hidden',
             alignSelf: 'center',
-            top: 250
+            top: 450,
+            position: 'absolute'
         }}
       >
         {closetItemUrl ? (
