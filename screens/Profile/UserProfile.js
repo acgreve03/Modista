@@ -1,10 +1,5 @@
-<<<<<<< HEAD
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, Image, TouchableOpacity,ScrollView } from 'react-native';
-=======
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, Image, TouchableOpacity, ActivityIndicator } from 'react-native';
->>>>>>> initial-design-outline
+import { View, Text, StyleSheet, Image, TouchableOpacity, ActivityIndicator, ScrollView } from 'react-native';
 import Outfits from './Outfits'; // Import the OutfitsGrid component
 import Closet from './Closet'; // Import the Closet component
 import Saved from './Saved'; // Import the Closet component
@@ -23,9 +18,6 @@ export const userData = {
     headerImage: 'https://via.placeholder.com/600x200', // Placeholder for header image
 }; 
 const UserProfile = () => {
-<<<<<<< HEAD
-    
-=======
 
   const [userProfile, setUserProfile] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -71,7 +63,6 @@ const UserProfile = () => {
         profilePicture: userProfile?.profilePictureUrl || 'https://via.placeholder.com/150',
         headerImage: 'https://via.placeholder.com/600x200', // Placeholder for header image
     };
->>>>>>> initial-design-outline
 
 
     // Tab content rendering
