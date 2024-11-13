@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, Image, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, Image, TouchableOpacity, ActivityIndicator, ScrollView } from 'react-native';
 import Outfits from './Outfits'; // Import the OutfitsGrid component
 import Closet from './Closet'; // Import the Closet component
 import Saved from './Saved'; // Import the Closet component
@@ -7,6 +7,16 @@ import { doc, getDoc } from 'firebase/firestore';
 import { db } from '../../firebaseConfig';
 import { auth } from '../../firebaseConfig';
 
+// Define userData outside the component
+export const userData = {
+    name: 'Jane Doe',
+    bio: 'Fashion Enthusiast, Stylist',
+    username: 'jane.doe',
+    followers: 0,
+    following: 0,
+    profilePicture: 'https://via.placeholder.com/150', // Replace with a valid image URL
+    headerImage: 'https://via.placeholder.com/600x200', // Placeholder for header image
+}; 
 const UserProfile = () => {
 
   const [userProfile, setUserProfile] = useState(null);
@@ -70,7 +80,8 @@ const UserProfile = () => {
         }
     };
 
-    return (
+    return  (
+        <ScrollView contentContainerStyle={styles.scrollViewContainer}>
         <View style={styles.container}>
             {/* Header Image */}
             <View style={styles.headerContainer}>
@@ -112,10 +123,14 @@ const UserProfile = () => {
             {/* Tab Content */}
             {renderTabContent()}
         </View>
+        </ScrollView>
     );
 };
 
 const styles = StyleSheet.create({
+    scrollViewContainer: {
+        padding: 0, // Adjust based on your design
+    },
   container: {
       flex: 1,
       backgroundColor: 'white',
