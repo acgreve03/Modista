@@ -22,6 +22,8 @@
     "@react-navigation/stack": "^6.4.1",
     "async-storage": "^0.1.0",
     "expo": "~51.0.36",
+    "expo-image-picker": "~15.0.7",
+    "expo-media-library": "~16.0.5",
     "expo-status-bar": "~1.12.1",
     "firebase": "^10.13.2",
     "gestalt": "^159.10.2",
@@ -38,9 +40,7 @@
     "react-native-screens": "3.31.1",
     "react-native-unimodules": "^0.15.0",
     "react-native-vector-icons": "^10.2.0",
-    "react-native-web": "~0.19.10",
-    "expo-media-library": "~16.0.5",
-    "expo-image-picker": "~15.0.7"
+    "react-native-web": "~0.19.10"
   },
   "optionalDependencies": {
     "n": "^10.0.0"
