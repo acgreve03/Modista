@@ -1,9 +1,13 @@
-import { useState, useEffect } from 'react';
-import { Modal, Alert, View, Text, TouchableOpacity, TextInput, StyleSheet, Image } from 'react-native';
+import { useState, useEffect, useRef } from 'react';
+import { Modal, Alert, View, Text, TouchableOpacity, TextInput, StyleSheet, Image, ActivityIndicator } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 //import { fetchUserClosetItems, generateOutfit } from '../services/outfitGenerator'; // Assuming these are in outfitGeneration.js
 import {  addDoc, doc, getDoc, collection, getDocs } from 'firebase/firestore';
 import { db, auth } from '../firebaseConfig';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { storage } from '../firebaseConfig'; // Adjust the path to your firebaseConfig file
+import { captureRef } from 'react-native-view-shot';
+
 
 const OutfitGenerateDisplay = () => {
     const [selectedType, setSelectedType] = useState(null);
@@ -408,9 +412,7 @@ export const generateOutfit = async (closetItems, season, occasion) => {
 export const OutfitDisplay = ({ generatedOutfit, modalVisible, setModalVisible }) => {
 
     const [loading, setLoading] = useState(false);
-
-
-
+    const collageRef = useRef(null); // Define collageRef here
 
     // Close the modal
     const closeOutfit = () => {
@@ -419,59 +421,71 @@ export const OutfitDisplay = ({ generatedOutfit, modalVisible, setModalVisible }
 
     const handleSaveOutfit = async () => {
         const user = auth.currentUser;
-    
+
         // Check for user and ensure generatedOutfit is a valid object and not empty
         if (!user || !generatedOutfit || Object.keys(generatedOutfit).length === 0) {
             Alert.alert('Error', 'User not authenticated or no outfit generated.');
             return;
         }
-    
+
         try {
             setLoading(true);
-    
+
             // Reference to the user's outfits collection in Firestore
             const userRef = doc(db, 'users', user.uid);
             const outfitsRef = collection(userRef, 'outfits');
-    
-            // Ensure `_j` exists and is iterable
-            const validItems = [];
-            const items = generatedOutfit._j; // Access `_j` directly
-    
 
+            // Ensure `_j` exists
+            const items = generatedOutfit._j;
+
+            if (!items) {
+                console.log("No valid `_j` found in generatedOutfit.");
+                Alert.alert('Error', 'No valid outfit generated.');
+                return;
+            }
+
+            // Process valid items
             const outfitData = {}; // This will hold the entire outfit
+
+            // Loop through `top` and `bottom` keys in `generatedOutfit._j`
             ['top', 'bottom'].forEach((key) => {
-                const item = items[key]; // Access individual item (e.g., top, bottom)
-    
+                const item = items[key];
+
                 // Validate the item
                 if (item?.ItemID && item?.imageUrl) {
                     outfitData[key] = {
-                        itemID: item.ItemID, // Save the ItemID (unique identifier)
-                        imageUrl: item.imageUrl, // Save the imageUrl (for the outfit)
-                        color: item.color, // Optional: Save additional metadata
+                        itemID: item.ItemID, 
+                        imageUrl: item.imageUrl, 
+                        color: item.color, 
                         occasion: item.occasion,
                         season: item.season,
                         subcategory: item.subcategory,
                     };
                 } else {
-                    console.log(`Skipping invalid item: ${key}`, item); // Log invalid items
+                    console.log(`Skipping invalid item: ${key}`, item); 
                 }
             });
-    
-            // Save valid items to Firestore if any
-    
-            // Save valid items to Firestore if any
-            // Ensure there is at least one valid item before saving
-        if (Object.keys(outfitData).length > 0) {
-            // Save the entire outfit as one document
-            await addDoc(outfitsRef, {
-                outfit: outfitData, // Contains all valid items (top, bottom, etc.)
-                createdAt: new Date(), // Optional: Add a timestamp
-            });
 
-            Alert.alert('Success', 'Outfit saved successfully!');
-        } else {
-            Alert.alert('Error', 'No valid items to save.');
-        }
+            // Ensure there is at least one valid item before saving
+            if (Object.keys(outfitData).length > 0) {
+                // Generate a unique image for the outfit by capturing the collage
+                const compositeImageUrl = await saveCollage(collageRef);
+
+                if (!compositeImageUrl) {
+                    throw new Error("Failed to generate outfit image.");
+                }
+
+                // Save the entire outfit as one document
+                await addDoc(outfitsRef, {
+                    outfit: outfitData, 
+                    outfitImageUrl: compositeImageUrl, // Use the image URL for the outfit collage
+                    createdAt: new Date(), // Optional: Add a timestamp
+                });
+
+                Alert.alert('Success', 'Outfit saved successfully!');
+            } else {
+                Alert.alert('Error', 'No valid items to save.');
+            }
         } catch (error) {
             console.error("Error saving outfit:", error);
             Alert.alert('Error', 'Failed to save outfit.');
@@ -479,27 +493,47 @@ export const OutfitDisplay = ({ generatedOutfit, modalVisible, setModalVisible }
             setLoading(false);
         }
     };
-    
-    
-    
-    
 
-    // Create a collage of images
-    const renderCollage = () => {
+    const saveCollage = async (collageRef) => {
+        try {
+            // Capture the collage view as an image
+            const uri = await captureRef(collageRef, {
+                format: 'png',
+                quality: 1.0,
+            });
+    
+            if (!uri) {
+                throw new Error('Failed to capture collage');
+            }
+    
+            // Convert the URI to a blob
+            const response = await fetch(uri);
+            const blob = await response.blob();
+    
+            // Upload the image to Firebase Storage
+            const storageRef = ref(storage, `collages/${Date.now()}.png`);
+            await uploadBytes(storageRef, blob);
+    
+            // Get the download URL for the uploaded image
+            const downloadURL = await getDownloadURL(storageRef);
+    
+            
+            return downloadURL;
+        } catch (error) {
+            console.error('Error saving collage:', error);
+            Alert.alert('Error', 'Failed to save collage.');
+        }
+    };
+    
+    // Handling the collage render
+    const renderCollage = (generatedOutfit) => {
+        
         if (!generatedOutfit) return null;
-        // Log the generatedOutfit to see its structure
-        //console.log("Generated Outfit:", generatedOutfit);
-       // console.log ("Generated Type:", typeof generatedOutfit)
-
-
+        
         const items = Object.values(generatedOutfit._j).filter(item => item && item.imageUrl);
-        //console.log("Filtered Items for Collage:", items.length);
-
-
-        //items.forEach(item => console.log(item.imageUrl));
-
+        
         return (
-            <View style={styles.collageContainer}>
+            <View style={styles.collageContainer} ref={collageRef}>
                 {items.map((item, index) => (
                     <Image
                         key={index}
@@ -510,6 +544,7 @@ export const OutfitDisplay = ({ generatedOutfit, modalVisible, setModalVisible }
             </View>
         );
     };
+    
 
     return (
         <Modal
@@ -521,7 +556,17 @@ export const OutfitDisplay = ({ generatedOutfit, modalVisible, setModalVisible }
             <View style={styles.modalBackground}>
                 <View style={styles.modalContainer}>
                     <Text style={styles.modalTitle}>Your Outfit</Text>
-                    {renderCollage()}
+
+                    {/* Show loading spinner if `loading` is true */}
+                {loading ? (
+                    <ActivityIndicator size="large" color="#0000ff" style={styles.loader} />
+                ) : (
+                    <View style={styles.collageContainer} ref={collageRef}>
+                        {renderCollage(generatedOutfit)}
+                    </View>
+                )}
+
+
                     <TouchableOpacity 
                         style={styles.saveButton}
                         //onPress={saveOutfit}
@@ -679,6 +724,7 @@ const styles = StyleSheet.create({
         // Removed extra paddingTop
         paddingTop: 0,   // Remove unnecessary paddingTop
         height: '38%',   // Let content determine the height
+        
     },
     
       outfitTitle: {
@@ -781,6 +827,11 @@ const styles = StyleSheet.create({
         marginBottom: 10,
         color: '#6a0dad',
     },
+    loader: {
+        marginTop: 130,  // Adjust based on your layout
+        position: 'absolute',  // Optional: This helps position the loader independently
+
+    }
 });
 
 export default OutfitGenerateDisplay;
