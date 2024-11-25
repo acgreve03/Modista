@@ -132,7 +132,7 @@ const OutfitPin = ({ outfit }) => {
                     <Text style={styles.username}>{userData.userName}</Text>
                   </View>
                 ) : (
-                  <Text>Loading user data...</Text>
+                  <Text>Loading user avatar...</Text>
                 )}
 
                 <Text style={styles.outfitCaption}>{selectedOutfit.caption}</Text>

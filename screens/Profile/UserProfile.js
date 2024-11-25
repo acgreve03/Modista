@@ -94,45 +94,13 @@ const UserProfile = () => {
     }
   };
 
-  //Function to follow a user
-  const followUser = async (currentUserId, targetUserId) => {
-    await updateDoc(doc(db, 'users', targetUserId), {
-        followers: arrayUnion(currentUserId),
-    });
-    await updateDoc(doc(db, 'users', currentUserId), {
-        following: arrayUnion(targetUserId),
-    });
-    setIsFollowing(true);
-    fetchFollowers();
-    fetchFollowing();
-  };
-
-  //Function to unfollow a user
-  const unFollowUser = async (currentUserId, targetUserId) => {
-    await updateDoc(doc(db, 'users', targetUserId), {
-        followers: arrayRemove(currentUserId),
-    });
-    await updateDoc(doc(db, 'users', currentUserId), {
-        following: arrayRemove(targetUserId),
-    });
-    setIsFollowing(false);
-    fetchFollowers();
-    fetchFollowing();
-  };
-
-  //Fetch selected user's profile and check follow status
-  const openUserProfileModal = async (userId, type) => {
-    setModalType(type);
+  //Open selected user's profile
+  const openUserProfileModal = async (userId) => {
     const userRef = doc(db, 'users', userId);
     const docSnap = await getDoc(userRef);
-    if(docSnap.exists()) {
-        const selectedUser = docSnap.data();
-        setSelectedUserProfile(selectedUser);
-
-        //Check if current user is following the selected user
-        const currentUserId = auth.currentUser.uid;
-        setIsFollowing(selectedUser.followers?.includes(currentUserId) || false);
-        setIsModalVisible(true);
+    if (docSnap.exists()) {
+      setSelectedUserProfile({ id: userId, ...docSnap.data()});
+      setIsModalVisible(true);
     }
   };
 
@@ -141,108 +109,134 @@ const UserProfile = () => {
     setSelectedUserProfile(null);
   };
 
-    //Loading screen
-    if (loading) {
-      return (
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="purple" />
-          <Text>Loading profile...</Text>
-        </View>
-      );
-    }
-
-    // Tab content rendering
-    const renderTabContent = () => {
-        switch (selectedTab) {
-            case 'Outfits':
-              return <Outfits />; // Load the outfits grid when the "Outfits" tab is selected
-            case 'Closet':
-                return <Closet />; // Load the Closet component
-            case 'Saved':
-                return <Saved /> // Loads saved component tab
-            default:
-                return null;
-        }
-    };
-
-    return  (
-        <ScrollView contentContainerStyle={styles.scrollViewContainer}>
-        <View style={styles.container}>
-            {/* Header Image */}
-            <View style={styles.headerContainer}>
-                <Image
-                    source={{ uri: userProfile?.headerImage || 'https://via.placeholder.com/600x200' }}
-                    style={styles.headerImage}
-                />
-                {/* Profile Picture */}
-                <Image
-                    source={{ uri: userProfile?.profilePictureUrl || 'https://via.placeholder.com/150' }}
-                    style={styles.profilePicture}
-                />
-            </View>
-
-            {/* User Info */}
-            <Text style={styles.name}>{`${userProfile?.firstName} ${userProfile?.lastName}`}</Text>
-            <Text style={styles.bio}>{userProfile?.bio || 'Modista User'}</Text>
-            <Text style={styles.username}>{userProfile?.userName}</Text>
-
-            {/* Followers and Following */}
-            <View style={styles.stats}>
-                <TouchableOpacity onPress={() => {fetchFollowers(); setModalType('followers'); setIsModalVisible(true);}}>
-                    <Text style={styles.stat}>{followersList.length || 0} Followers</Text>
-                </TouchableOpacity>
-                <TouchableOpacity onPress={() => {fetchFollowing(); setModalType('following'); setIsModalVisible(true);}}>
-                    <Text style={styles.stat}>{followingList.length || 0} Followers</Text>
-                </TouchableOpacity>
-            </View>
-
-            {/* Profile Tabs */}
-            <View style={styles.tabsContainer}>
-                {['Outfits', 'Closet', 'Saved'].map((tab) => (
-                    <TouchableOpacity
-                        key={tab}
-                        style={[styles.tab, selectedTab === tab && styles.activeTab]}
-                        onPress={() => setSelectedTab(tab)}
-                    >
-                        <Text style={styles.tabText}>{tab}</Text>
-                    </TouchableOpacity>
-                ))}
-            </View>
-            {renderTabContent()}
-
-            <Modal visible={isModalVisible} animationType="slide" onRequestClose={closeModal}>
-                <View style={[styles.modalContent, {paddingTop: 40}]}>
-                    <Button title="Close" onPress={closeModal} />
-                    <FlatList
-                        data={modalType === 'followers' ? followersList : followingList}
-                        renderItem={({item}) => (
-                            <TouchableOpacity onPress={() => openUserProfileModal(item.id, modalType)}>
-                                <View style={styles.followerItemContainer}>
-                                    <Image source={{uri: item.profilePictureUrl || 'https://via.placeholder.com/40' }} style={styles.followerAvatar}
-                                    />
-                                    <Text style={styles.followerItemText}>{item.userName || 'Unknown User'}</Text>
-                                </View>
-                            </TouchableOpacity>
-                        )}
-                        nestedScrollEnabled={true}
-                        keyExtractor={(item) => item.id}
-                        ListEmptyComponent={
-                          <Text style={styles.emptyListText}>
-                            {modalType === 'followers' ? 'No followers found' : 'Not following anyone'}
-                          </Text>
-                        }
-                    />
-                </View>
-            </Modal>
-        </View>
-        </ScrollView>
+  //Loading screen
+  if (loading) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="purple" />
+        <Text>Loading profile...</Text>
+      </View>
     );
+  }
+
+  // Tab content rendering
+  const renderTabContent = () => {
+    switch (selectedTab) {
+      case 'Outfits':
+        return <Outfits />; // Load the outfits grid when the "Outfits" tab is selected
+      case 'Closet':
+        return <Closet />; // Load the Closet component
+      case 'Saved':
+        return <Saved /> // Loads saved component tab
+      default:
+        return null;
+      }
+  };
+
+  return  (
+    <ScrollView contentContainerStyle={styles.scrollViewContainer}>
+      <View style={styles.container}>
+        {/* Header Image */}
+        <View style={styles.headerContainer}>
+          <Image
+            source={{ uri: userProfile?.headerImage || 'https://via.placeholder.com/600x200' }}
+            style={styles.headerImage}
+          />
+          {/* Profile Picture */}
+          <Image
+            source={{ uri: userProfile?.profilePictureUrl || 'https://via.placeholder.com/150' }}
+            style={styles.profilePicture}
+          />
+        </View>
+
+        {/* User Info */}
+        <Text style={styles.name}>{`${userProfile?.firstName} ${userProfile?.lastName}`}</Text>
+        <Text style={styles.bio}>{userProfile?.bio || 'Modista User'}</Text>
+        <Text style={styles.userName}>{userProfile?.userName}</Text>
+
+        {/* Followers and Following */}
+        <View style={styles.stats}>
+          <TouchableOpacity onPress={() => {fetchFollowers(); setModalType('followers'); setIsModalVisible(true);}}>
+            <Text style={styles.stat}>{followersList.length || 0} Followers</Text>
+          </TouchableOpacity>
+          <TouchableOpacity onPress={() => {fetchFollowing(); setModalType('following'); setIsModalVisible(true);}}>
+            <Text style={styles.stat}>{followingList.length || 0} Following</Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* Profile Tabs */}
+        <View style={styles.tabsContainer}>
+          {['Outfits', 'Closet', 'Saved'].map((tab) => (
+            <TouchableOpacity
+              key={tab}
+              style={[styles.tab, selectedTab === tab && styles.activeTab]}
+              onPress={() => setSelectedTab(tab)}
+            >
+              <Text style={styles.tabText}>{tab}</Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+        {renderTabContent()}
+
+        <Modal visible={isModalVisible} animationType="slide" onRequestClose={closeModal}>
+          <View style={styles.modalContent}>
+            <View style={StyleSheet.modalHeader}>
+              <TouchableOpacity onPress={closeModal} style={StyleSheet.backArrowContainer}>
+                <Text style={styles.backArrowText}>←</Text>
+              </TouchableOpacity>
+              <Text style={styles.modalTitle}>
+                {modalType === 'followers' ? 'Followers' : 'Following'}
+              </Text>
+            </View>
+              {selectedUserProfile ? (
+                <PublicProfile userProfile={selectedUserProfile} />
+              ) : (
+                <FlatList
+                  data={modalType === 'followers' ? followersList : followingList}
+                  renderItem={({item}) => (
+                    <TouchableOpacity onPress={() => openUserProfileModal(item.id, modalType)}>
+                      <View style={styles.followerItemContainer}>
+                        <Image source={{uri: item.profilePictureUrl || 'https://via.placeholder.com/40' }} style={styles.followerAvatar}
+                        />
+                        <Text style={styles.followerItemText}>{item.userName || 'Unknown User'}</Text>
+                      </View>
+                    </TouchableOpacity>
+                   )}
+                  nestedScrollEnabled={true}
+                  keyExtractor={(item) => item.id}
+                  ListEmptyComponent={
+                    <Text style={styles.emptyListText}>
+                      {modalType === 'followers' ? 'No followers found' : 'Not following anyone'}
+                    </Text>
+                  }
+                />
+              )}
+          </View>
+        </Modal>
+      </View>
+    </ScrollView>
+  );
 };
 
+const PublicProfile = ({ userProfile}) => (
+  <View style={styles.publicProfileContainer}>
+    <Image source={{ uri: userProfile?.profilePictureUrl || 'https://via.placeholder.com/150'}} style={styles.publicProfilePicture}
+    />
+    <Text style={styles.publicName}>{`${userProfile?.firstName} ${userProfile.lastName}`}</Text>
+    <Text style={styles.publicUserName}>{userProfile?.userName}</Text>
+    <Text style={styles.publicBio}>{userProfile?.bio}</Text>
+
+    <View style={styles.stats}>
+      <Text style={styles.stat}>{userProfile?.followers?.length || 0} Followers</Text>
+      <Text style={styles.stat}>{userProfile?.following?.length || 0} Following</Text>
+    </View>
+  </View>
+);
+
 const styles = StyleSheet.create({
-    scrollViewContainer: {
-        padding: 0, // Adjust based on your design
-    },
+  scrollViewContainer: {
+    padding: 0, // Adjust based on your design
+  },
   container: {
       flex: 1,
       backgroundColor: 'white',
@@ -284,7 +278,7 @@ const styles = StyleSheet.create({
       marginVertical: 3, // Adjusted the space between name and bio
       textAlign: 'center',
   },
-  username: {
+  userName: {
     color: '#666',
     fontSize: 16,
     marginVertical: 3, // Adjusted the space between name and bio
@@ -330,6 +324,7 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: 'white',
     padding: 20,
+    paddingTop: 60,
   },
   followerItemContainer: {
     flexDirection: 'row',
@@ -349,33 +344,66 @@ const styles = StyleSheet.create({
     color: '#333',
   },
   modalHeader: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    textAlign: 'center',
-    marginVertical: 10,
-    color: '#333',
-  },
-  closeButton: {
-    backgroundColor: 'purple',
-    padding: 10,
-    borderRadius: 5,
+    flexDirection: 'row',
     alignItems: 'center',
+    marginBottom: 10,
+  },
+  backArrowContainer: {
+    marginRight: 10,
+    padding: 5,
+  },
+  backArrowText: {
+    fontSize: 30,
+    fontWeight: 'bold',
+    color: 'black',
+    marginTop: 15,
+  },
+  modalTitle: {
+    alignSelf: 'center',
+    fontSize: 30,
+    color: '#333',
+    paddingBottom: 20,
+    marginTop: -35,
+  },
+  emptyListText: {
+    textAlign: 'center',
+    color: '#666',
     marginTop: 20,
   },
-  closeButtonText: {
-    color: 'white',
-    fontSize: 16,
+  publicProfileContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'flex-start',
+    paddnigTop: 50,
+    backgrouondColor: 'white',
+  },
+  publicProfilePicture: {
+    width: 100,
+    height: 100,
+    borderRadius: 60,
+    borderWidth: 2,
+    borderColor: '#ddd',
+    marginBottom: 15,
+  },
+  publicName: {
+    fontSize: 24,
     fontWeight: 'bold',
-  },
-  followButton: {
-    padding: 10,
-    borderRadius: 5,
-    marginVertical: 10,
-  },
-  followButtonText: {
-    color: 'white',
-    fontSize: 16,
+    color: '#333',
     textAlign: 'center',
+    marginBottom: 8,
+  },
+  publicUserName: {
+    fontSize: 18,
+    color: '#666',
+    textAlign: 'center',
+    marginBottom: 12,
+  },
+  publicBio: {
+    fontSize: 16,
+    color: '#666',
+    textAlign: 'center',
+    marginBottom: 0,
+    paddingHorizontal: 20,
   },
 });
 
