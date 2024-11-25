@@ -1,9 +1,9 @@
-import React, { useRef, useState } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import { View, Image, StyleSheet, TouchableOpacity, Animated, Text, Dimensions, Modal, ScrollView, TextInput } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import Feather from '@expo/vector-icons/Feather';
-import { userData } from '../screens/Profile/UserProfile.js'; 
+import { getFirestore, doc, getDoc } from 'firebase/firestore';
 
 const screenWidth = Dimensions.get('window').width;
 const screenHeight = Dimensions.get('window').height;
@@ -14,6 +14,29 @@ const OutfitPin = ({ outfit }) => {
   const [selectedOutfit, setSelectedOutfit] = useState(null);
   const [comment, setComment] = useState('');
   const [comments, setComments] = useState([]);
+  const [userData, setUserData] = useState(null);
+
+  const db = getFirestore();
+
+  useEffect(() => {
+    if(modalVisible && outfit.userId) {
+      fetchUserData(outfit.userId);
+    }
+  }, [modalVisible]);
+
+  const fetchUserData = async (userId) => {
+    try{
+      const userRef = doc(db, 'users', userId);
+      const userSnap = await getDoc(userRef);
+      if(userSnap.exists()) {
+        setUserData(userSnap.data());
+      } else {
+        console.error('User not found');
+      }
+    } catch (error) {
+      console.error('Error fetching user data:', error);
+    }
+  };
 
   const handlePressIn = () => {
     Animated.timing(scaleValue, {
@@ -47,6 +70,7 @@ const OutfitPin = ({ outfit }) => {
 
   const handleCloseModal = () => {
     setModalVisible(false);
+    setUserData(null);
   };
 
   return (
@@ -102,11 +126,15 @@ const OutfitPin = ({ outfit }) => {
                 
 
                 {/* User Information */}
-                <View style={styles.profileSection}>
-                <Image source={{ uri: userData.profilePicture }} style={styles.profileImage} />
-                  <Text style={styles.username}>{userData.username}</Text>
-                  
-                </View>
+                {userData ? (
+                  <View style={styles.profileSection}>
+                    <Image source={{uri: userData?.profilePictureUrl || 'https://via.placeholder.com/150'}} style={styles.profileImage} />
+                    <Text style={styles.username}>{userData.userName}</Text>
+                  </View>
+                ) : (
+                  <Text>Loading user data...</Text>
+                )}
+
                 <Text style={styles.outfitCaption}>{selectedOutfit.caption}</Text>
                 <Text style={styles.outfitDescription}>{selectedOutfit.description}</Text>
 

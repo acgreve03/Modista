@@ -1,29 +1,24 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, Image, TouchableOpacity, ActivityIndicator, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, Image, TouchableOpacity, ActivityIndicator, ScrollView, Modal, Button, FlatList } from 'react-native';
 import Outfits from './Outfits'; // Import the OutfitsGrid component
 import Closet from './Closet'; // Import the Closet component
 import Saved from './Saved'; // Import the Closet component
-import { doc, getDoc } from 'firebase/firestore';
+import { doc, getDoc, updateDoc, arrayUnion, arrayRemove } from 'firebase/firestore';
 import { db } from '../../firebaseConfig';
 import { auth } from '../../firebaseConfig';
 
-// Define userData outside the component
-export const userData = {
-    name: 'Jane Doe',
-    bio: 'Fashion Enthusiast, Stylist',
-    username: 'jane.doe',
-    followers: 0,
-    following: 0,
-    profilePicture: 'https://via.placeholder.com/150', // Replace with a valid image URL
-    headerImage: 'https://via.placeholder.com/600x200', // Placeholder for header image
-}; 
 const UserProfile = () => {
-
   const [userProfile, setUserProfile] = useState(null);
   const [loading, setLoading] = useState(true);
   const [selectedTab, setSelectedTab] = useState('Outfits');
+  const [followersList, setFollowersList] = useState([]);
+  const [followingList, setFollowingList] = useState([]);
+  const [selectedUserProfile, setSelectedUserProfile] = useState(null);
+  const [isModalVisible, setIsModalVisible] = useState(false);
+  const [isFollowing, setIsFollowing] = useState(false);
+  const [modalType, setModalType] = useState('followers');
 
-  //Fetching user's data
+  //Fetching current user's data
   useEffect(() => {
     const fetchUserProfile = async () => {
       const user = auth.currentUser; // Get the current logged-in user
@@ -37,11 +32,114 @@ const UserProfile = () => {
           console.log('No such document!');
         }
       }
+      await fetchFollowers();
+      await fetchFollowing();
       setLoading(false);
     };
 
     fetchUserProfile();
   }, []);
+
+  //Fetch followers list
+  const fetchFollowers = async () => {
+    try {
+      const userRef = doc(db, 'users', auth.currentUser.uid);
+      const docSnap = await getDoc(userRef);
+      if (docSnap.exists()) {
+        const followers = docSnap.data().followers || [];
+
+        //fetch full profiles for each follower UID
+        const followersData = await Promise.all(
+          followers.map(async (followerId) => {
+            const followerRef = doc(db, 'users', followerId);
+            const followerSnap = await getDoc(followerRef);
+            if (followerSnap.exists()) {
+              return { id: followerId, ...followerSnap.data()};
+            } else {
+              return { id: followerId, userName: 'Unknown User', profilePictureUrl: ''}; //Default values
+            }
+          })
+        );
+        setFollowersList(followersData); // update state with full profiles
+      }
+    } catch (error) {
+      console.error("Error fetching followers: ", error);
+    }
+  };
+
+  //Fetch following list
+  const fetchFollowing = async () => {
+    try {
+      const userRef = doc(db, 'users', auth.currentUser.uid);
+      const docSnap = await getDoc(userRef);
+      if (docSnap.exists()) {
+        const following = docSnap.data().following || [];
+        
+        //Fetch full profiles for each following UID
+        const followingData = await Promise.all(
+          following.map(async (followingId) => {
+            const followingRef = doc(db, 'users', followingId);
+            const followingSnap = await getDoc(followingRef);
+            if (followingSnap.exists()) {
+              return { id: followingId, ...followingSnap.data()};
+            } else {
+              return { id: followingId, userName: 'Unknown User', profilePictureUrl: ''}; //default values
+            }
+          })
+        );
+        setFollowingList(followingData); //update state with full profiles
+      }
+    } catch (error) {
+      console.error("Error fetching following:", error);
+    }
+  };
+
+  //Function to follow a user
+  const followUser = async (currentUserId, targetUserId) => {
+    await updateDoc(doc(db, 'users', targetUserId), {
+        followers: arrayUnion(currentUserId),
+    });
+    await updateDoc(doc(db, 'users', currentUserId), {
+        following: arrayUnion(targetUserId),
+    });
+    setIsFollowing(true);
+    fetchFollowers();
+    fetchFollowing();
+  };
+
+  //Function to unfollow a user
+  const unFollowUser = async (currentUserId, targetUserId) => {
+    await updateDoc(doc(db, 'users', targetUserId), {
+        followers: arrayRemove(currentUserId),
+    });
+    await updateDoc(doc(db, 'users', currentUserId), {
+        following: arrayRemove(targetUserId),
+    });
+    setIsFollowing(false);
+    fetchFollowers();
+    fetchFollowing();
+  };
+
+  //Fetch selected user's profile and check follow status
+  const openUserProfileModal = async (userId, type) => {
+    setModalType(type);
+    const userRef = doc(db, 'users', userId);
+    const docSnap = await getDoc(userRef);
+    if(docSnap.exists()) {
+        const selectedUser = docSnap.data();
+        setSelectedUserProfile(selectedUser);
+
+        //Check if current user is following the selected user
+        const currentUserId = auth.currentUser.uid;
+        setIsFollowing(selectedUser.followers?.includes(currentUserId) || false);
+        setIsModalVisible(true);
+    }
+  };
+
+  const closeModal = () => {
+    setIsModalVisible(false);
+    setSelectedUserProfile(null);
+  };
 
     //Loading screen
     if (loading) {
@@ -53,18 +151,6 @@ const UserProfile = () => {
       );
     }
 
-    //Display user data or default values.
-    const userData = {
-        name: `${userProfile?.firstName} ${userProfile?.lastName}`,
-        bio: userProfile?.bio || 'Modista User',
-        username: userProfile?.userName,
-        followers: userProfile?.followers || 0,
-        following: userProfile?.following || 0,
-        profilePicture: userProfile?.profilePictureUrl || 'https://via.placeholder.com/150',
-        headerImage: 'https://via.placeholder.com/600x200', // Placeholder for header image
-    };
-
-
     // Tab content rendering
     const renderTabContent = () => {
         switch (selectedTab) {
@@ -74,7 +160,6 @@ const UserProfile = () => {
                 return <Closet />; // Load the Closet component
             case 'Saved':
                 return <Saved /> // Loads saved component tab
-            
             default:
                 return null;
         }
@@ -86,25 +171,29 @@ const UserProfile = () => {
             {/* Header Image */}
             <View style={styles.headerContainer}>
                 <Image
-                    source={{ uri: userData.headerImage }}
+                    source={{ uri: userProfile?.headerImage || 'https://via.placeholder.com/600x200' }}
                     style={styles.headerImage}
                 />
                 {/* Profile Picture */}
                 <Image
-                    source={{ uri: userData.profilePicture }}
+                    source={{ uri: userProfile?.profilePictureUrl || 'https://via.placeholder.com/150' }}
                     style={styles.profilePicture}
                 />
             </View>
 
             {/* User Info */}
-            <Text style={styles.name}>{userData.name}</Text>
-            <Text style={styles.bio}>{userData.bio}</Text>
-            <Text style={styles.username}>{userData.username}</Text>
+            <Text style={styles.name}>{`${userProfile?.firstName} ${userProfile?.lastName}`}</Text>
+            <Text style={styles.bio}>{userProfile?.bio || 'Modista User'}</Text>
+            <Text style={styles.username}>{userProfile?.userName}</Text>
 
             {/* Followers and Following */}
             <View style={styles.stats}>
-                <Text style={styles.stat}>{userData.followers} Followers</Text>
-                <Text style={styles.stat}>{userData.following} Following</Text>
+                <TouchableOpacity onPress={() => {fetchFollowers(); setModalType('followers'); setIsModalVisible(true);}}>
+                    <Text style={styles.stat}>{followersList.length || 0} Followers</Text>
+                </TouchableOpacity>
+                <TouchableOpacity onPress={() => {fetchFollowing(); setModalType('following'); setIsModalVisible(true);}}>
+                    <Text style={styles.stat}>{followingList.length || 0} Followers</Text>
+                </TouchableOpacity>
             </View>
 
             {/* Profile Tabs */}
@@ -119,9 +208,32 @@ const UserProfile = () => {
                     </TouchableOpacity>
                 ))}
             </View>
-
-            {/* Tab Content */}
             {renderTabContent()}
+
+            <Modal visible={isModalVisible} animationType="slide" onRequestClose={closeModal}>
+                <View style={[styles.modalContent, {paddingTop: 40}]}>
+                    <Button title="Close" onPress={closeModal} />
+                    <FlatList
+                        data={modalType === 'followers' ? followersList : followingList}
+                        renderItem={({item}) => (
+                            <TouchableOpacity onPress={() => openUserProfileModal(item.id, modalType)}>
+                                <View style={styles.followerItemContainer}>
+                                    <Image source={{uri: item.profilePictureUrl || 'https://via.placeholder.com/40' }} style={styles.followerAvatar}
+                                    />
+                                    <Text style={styles.followerItemText}>{item.userName || 'Unknown User'}</Text>
+                                </View>
+                            </TouchableOpacity>
+                        )}
+                        nestedScrollEnabled={true}
+                        keyExtractor={(item) => item.id}
+                        ListEmptyComponent={
+                          <Text style={styles.emptyListText}>
+                            {modalType === 'followers' ? 'No followers found' : 'Not following anyone'}
+                          </Text>
+                        }
+                    />
+                </View>
+            </Modal>
         </View>
         </ScrollView>
     );
@@ -214,7 +326,57 @@ const styles = StyleSheet.create({
       fontSize: 18,
       marginTop: 20,
   },
+  modalContent: {
+    flex: 1,
+    backgroundColor: 'white',
+    padding: 20,
+  },
+  followerItemContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#eee',
+  },
+  followerAvatar: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    marginRight: 10,
+  },
+  followerItemText: {
+    fontSize: 16,
+    color: '#333',
+  },
+  modalHeader: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    textAlign: 'center',
+    marginVertical: 10,
+    color: '#333',
+  },
+  closeButton: {
+    backgroundColor: 'purple',
+    padding: 10,
+    borderRadius: 5,
+    alignItems: 'center',
+    marginTop: 20,
+  },
+  closeButtonText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  followButton: {
+    padding: 10,
+    borderRadius: 5,
+    marginVertical: 10,
+  },
+  followButtonText: {
+    color: 'white',
+    fontSize: 16,
+    textAlign: 'center',
+  },
 });
-
 
 export default UserProfile;
