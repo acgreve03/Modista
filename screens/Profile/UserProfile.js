@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, Image, TouchableOpacity, ActivityIndicator, Scr
 import Outfits from './Outfits'; // Import the OutfitsGrid component
 import Closet from './Closet'; // Import the Closet component
 import Saved from './Saved'; // Import the Closet component
-import { doc, getDoc, updateDoc, arrayUnion, arrayRemove } from 'firebase/firestore';
+import { doc, getDoc } from 'firebase/firestore';
 import { db } from '../../firebaseConfig';
 import { auth } from '../../firebaseConfig';
 
@@ -15,7 +15,6 @@ const UserProfile = () => {
   const [followingList, setFollowingList] = useState([]);
   const [selectedUserProfile, setSelectedUserProfile] = useState(null);
   const [isModalVisible, setIsModalVisible] = useState(false);
-  const [isFollowing, setIsFollowing] = useState(false);
   const [modalType, setModalType] = useState('followers');
 
   //Fetching current user's data
