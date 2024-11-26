@@ -4,6 +4,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import Feather from '@expo/vector-icons/Feather';
 import { getFirestore, doc, getDoc } from 'firebase/firestore';
+import {getAuth} from 'firebase/auth';
 
 const screenWidth = Dimensions.get('window').width;
 const screenHeight = Dimensions.get('window').height;
@@ -17,26 +18,31 @@ const OutfitPin = ({ outfit }) => {
   const [userData, setUserData] = useState(null);
 
   const db = getFirestore();
+  const auth = getAuth();
 
   useEffect(() => {
-    if(modalVisible && outfit.userId) {
-      fetchUserData(outfit.userId);
+    if(modalVisible) {
+      fetchUserData();
     }
   }, [modalVisible]);
 
-  const fetchUserData = async (userId) => {
-    try{
-      const userRef = doc(db, 'users', userId);
-      const userSnap = await getDoc(userRef);
-      if(userSnap.exists()) {
-        setUserData(userSnap.data());
-      } else {
-        console.error('User not found');
+  const fetchUserData = async () => {
+    const user = auth.currentUser;
+    if (user) {
+      try {
+        const userRef = doc(db, 'users', user.uid);  
+        const userSnap = await getDoc(userRef);
+        if (userSnap.exists()) {
+          setUserData(userSnap.data());  
+        } else {
+          console.error('User not found');
+        }
+      } catch (error) {
+        console.error('Error fetching user data:', error);
       }
-    } catch (error) {
-      console.error('Error fetching user data:', error);
     }
   };
+  
 
   const handlePressIn = () => {
     Animated.timing(scaleValue, {
