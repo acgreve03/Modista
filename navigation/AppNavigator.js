@@ -65,7 +65,8 @@ function MainTabs({navigation}) {
               </TouchableOpacity>
             ),
           }}
-        />
+        /> 
+        {/* <Tab.Screen name="Post" component={PostScreen} /> */}
         <Tab.Screen name="Notifications" component={NotificationScreen} />
         <Tab.Screen name="Profile" component={UserProfile} />
       </Tab.Navigator>
