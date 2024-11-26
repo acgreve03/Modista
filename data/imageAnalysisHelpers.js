@@ -77,8 +77,16 @@ export const fetchColorNameFromChatGPT = async (red, green, blue, chatGPTKey) =>
 export const fetchClothingCategoriesFromChatGPT = async (labels, chatGPTKey) => {
   try {
     const prompt = `From these labels:\n${labels.join(
-      ', '
-    )}, choose 1 label per category: clothing type and clothing subtype.`;
+      ", "
+    )}, provide the following information:
+    - Clothing type
+    - Appropriate occasion (e.g., casual, formal, etc.)
+    - Suitable season (e.g., summer, winter, etc.)
+    
+    Respond in the following format:
+    Clothing Type: <type>
+    Occasion: <occasion>
+    Season: <season>`;
     const response = await axios.post(
       'https://api.openai.com/v1/chat/completions',
       {
@@ -93,9 +101,18 @@ export const fetchClothingCategoriesFromChatGPT = async (labels, chatGPTKey) => 
       }
     );
 
-    return response.data.choices[0].message.content.trim();
+    const chatGPTResponse = response.data.choices[0].message.content.trim();
+    const clothingType = chatGPTResponse.match(/Clothing Type: (.*)/)?.[1] || "";
+    const occasion = chatGPTResponse.match(/Occasion: (.*)/)?.[1] || "";
+    const season = chatGPTResponse.match(/Season: (.*)/)?.[1] || "";
+
+    return { clothingType, occasion, season };
   } catch (error) {
     console.error('Error fetching clothing categories from ChatGPT:', error);
-    return 'Unable to determine clothing categories';
+    return {
+        clothingType: "",
+        occasion: "",
+        season: "",
+      };
   }
 };
