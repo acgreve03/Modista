@@ -1,5 +1,6 @@
+// SearchScreen.js
 import React, { useState } from 'react';
-import { View, Text, TextInput, Image, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, Text, TextInput, ScrollView, Image, StyleSheet, TouchableOpacity } from 'react-native';
 import { FontAwesome } from '@expo/vector-icons'; // Import icons from @expo/vector-icons
 
 /**
@@ -13,7 +14,7 @@ export default function SearchScreen() {
   // State to store filtered search results based on query
   const [results, setResults] = useState([]);
 
-  // Sample outfits data, could be fetched from an API in a real app
+  // Sample outfits data
   const outfits = [
     { id: 1, name: 'Autumn Outfit', image: 'https://via.placeholder.com/150' },
     { id: 2, name: 'Sweater Weather', image: 'https://via.placeholder.com/150' },
@@ -33,9 +34,6 @@ export default function SearchScreen() {
     // Update results if any matches are found, otherwise clear
     setResults(filteredResults.length > 0 ? filteredResults : []);
   };
-
-  // Determine which data to display: search results or all outfits
-  const dataToDisplay = results.length > 0 ? results : outfits;
 
   return (
     <View style={styles.container}>
@@ -65,7 +63,7 @@ export default function SearchScreen() {
 
       {/* Grid Layout for Outfits */}
       <View style={styles.grid}>
-        {dataToDisplay.map((outfit) => (
+        {outfits.map((outfit) => (
           <View key={outfit.id} style={styles.outfitCard}>
             {/* Display outfit image */}
             <Image source={{ uri: outfit.image }} style={styles.outfitImage} />
@@ -125,7 +123,7 @@ const styles = StyleSheet.create({
     color: '#333',
   },
   sectionTitle: {
-    // Style for section titles like "More Inspo"
+    // Style for section titles like "More Inspiration"
     fontSize: 20,
     fontWeight: 'bold',
     marginHorizontal: 16,
