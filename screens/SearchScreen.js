@@ -1,7 +1,15 @@
+<<<<<<< Updated upstream
 // SearchScreen.js
 import React, { useState } from 'react';
 import { View, Text, TextInput, ScrollView, Image, StyleSheet, TouchableOpacity } from 'react-native';
 import { FontAwesome } from '@expo/vector-icons'; // Import icons from @expo/vector-icons
+=======
+import React, { useState, useEffect } from 'react';
+import { View, Text, TextInput, Image, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { FontAwesome } from '@expo/vector-icons';
+import { db, auth } from '../firebaseConfig';
+import { collection, query, where, getDocs } from 'firebase/firestore';
+>>>>>>> Stashed changes
 
 /**
  * SearchScreen Component
@@ -14,62 +22,182 @@ export default function SearchScreen() {
   // State to store filtered search results based on query
   const [results, setResults] = useState([]);
 
+<<<<<<< Updated upstream
   // Sample outfits data
   const outfits = [
     { id: 1, name: 'Autumn Outfit', image: 'https://via.placeholder.com/150' },
     { id: 2, name: 'Sweater Weather', image: 'https://via.placeholder.com/150' },
     { id: 3, name: 'Chic Skirts', image: 'https://via.placeholder.com/150' },
   ];
+=======
+  // State to store all outfits
+  const [outfits, setOutfits] = useState([]);
+
+  // State to store user preferences
+  const [userPreferences, setUserPreferences] = useState(null);
+
+  // State to track loading status
+  const [loading, setLoading] = useState(true);
+
+  // Fetch user preferences and outfits when component mounts
+  useEffect(() => {
+    const loadData = async () => {
+      try {
+        setLoading(true);
+        
+        // Fetch user preferences
+        const userQuery = query(
+          collection(db, 'users'),
+          where('uid', '==', auth.currentUser.uid)
+        );
+        const userSnapshot = await getDocs(userQuery);
+        
+        if (!userSnapshot.empty) {
+          setUserPreferences(userSnapshot.docs[0].data().preferences);
+        }
+
+        // Fetch all outfits
+        const outfitsSnapshot = await getDocs(collection(db, 'outfits'));
+        const outfitsData = outfitsSnapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data()
+        }));
+        setOutfits(outfitsData);
+
+      } catch (error) {
+        console.error('Error loading data:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadData();
+  }, []);
+
+  // Calculate how well an outfit matches user preferences
+  const calculatePreferenceScore = (outfit) => {
+    if (!userPreferences) return 0;
+    
+    let score = 0;
+    
+    // Match styles
+    if (userPreferences.stylePreferences && outfit.styles) {
+      userPreferences.stylePreferences.forEach(style => {
+        if (outfit.styles.includes(style)) score += 2;
+      });
+    }
+    
+    // Match colors
+    if (userPreferences.colorPreferences && outfit.colors) {
+      userPreferences.colorPreferences.forEach(color => {
+        if (outfit.colors.includes(color)) score += 1;
+      });
+    }
+    
+    // Match season
+    if (userPreferences.seasonPreferences && 
+        outfit.season && 
+        userPreferences.seasonPreferences.includes(outfit.season)) {
+      score += 1.5;
+    }
+    
+    return score;
+  };
+>>>>>>> Stashed changes
 
   /**
    * Filters the list of outfits based on the search query.
    * @param {string} text - The current input in the search bar.
    */
   const handleSearch = (text) => {
-    setQuery(text); // Update the query state
-    // Filter outfits by matching the query with the outfit name
-    const filteredResults = outfits.filter((item) =>
-      item.name.toLowerCase().includes(text.toLowerCase())
-    );
-    // Update results if any matches are found, otherwise clear
-    setResults(filteredResults.length > 0 ? filteredResults : []);
+    setQuery(text);
+    
+    let filtered = outfits;
+
+    // Filter by search text if provided
+    if (text) {
+      filtered = filtered.filter(item =>
+        item.name.toLowerCase().includes(text.toLowerCase())
+      );
+    }
+
+    // Sort by preference score
+    filtered = filtered.sort((a, b) => {
+      const scoreA = calculatePreferenceScore(a);
+      const scoreB = calculatePreferenceScore(b);
+      return scoreB - scoreA; // Higher scores first
+    });
+
+    setResults(filtered);
   };
 
+<<<<<<< Updated upstream
+=======
+  if (loading) {
+    return (
+      <View style={[styles.container, styles.centered]}>
+        <ActivityIndicator size="large" color="#0000ff" />
+      </View>
+    );
+  }
+
+  // Determine which data to display
+  const dataToDisplay = query ? results : outfits;
+
+>>>>>>> Stashed changes
   return (
     <View style={styles.container}>
       {/* Search Bar */}
       <View style={styles.searchContainer}>
         <TextInput
           style={styles.searchInput}
-          placeholder="Search"
+          placeholder="Search outfits..."
           value={query}
           onChangeText={handleSearch}
         />
-        {/* Icon for filter settings */}
         <FontAwesome name="sliders" size={24} color="#888" style={styles.icon} />
       </View>
 
-      {/* Tag Section: Displays clickable tags for filtering */}
+      {/* Tag Section */}
       <View style={styles.tagContainer}>
         {['Casual', 'Classy', 'Comfy'].map((tag) => (
-          <TouchableOpacity key={tag} style={styles.tag}>
+          <TouchableOpacity 
+            key={tag} 
+            style={styles.tag}
+            onPress={() => handleSearch(tag)}
+          >
             <Text style={styles.tagText}>{tag}</Text>
           </TouchableOpacity>
         ))}
       </View>
 
-      {/* Section Title for outfit inspiration */}
-      <Text style={styles.sectionTitle}>More Inspo</Text>
+      <Text style={styles.sectionTitle}>
+        {query ? 'Search Results' : 'Recommended For You'}
+      </Text>
 
-      {/* Grid Layout for Outfits */}
+      {/* Grid Layout */}
       <View style={styles.grid}>
+<<<<<<< Updated upstream
         {outfits.map((outfit) => (
           <View key={outfit.id} style={styles.outfitCard}>
             {/* Display outfit image */}
             <Image source={{ uri: outfit.image }} style={styles.outfitImage} />
             {/* Display outfit name */}
+=======
+        {dataToDisplay.map((outfit) => (
+          <TouchableOpacity key={outfit.id} style={styles.outfitCard}>
+            <Image 
+              source={{ uri: outfit.image }} 
+              style={styles.outfitImage} 
+            />
+>>>>>>> Stashed changes
             <Text style={styles.outfitName}>{outfit.name}</Text>
-          </View>
+            {outfit.styles && (
+              <Text style={styles.outfitStyles}>
+                {outfit.styles.join(', ')}
+              </Text>
+            )}
+          </TouchableOpacity>
         ))}
       </View>
     </View>
@@ -155,5 +283,15 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '500',
     textAlign: 'center',
+  },
+  centered: {
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  outfitStyles: {
+    fontSize: 12,
+    color: '#666',
+    textAlign: 'center',
+    marginTop: 4,
   },
 });
