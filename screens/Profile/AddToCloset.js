@@ -11,6 +11,7 @@ import { onAuthStateChanged } from 'firebase/auth';
 
 const GOOGLE_API_KEY = "AIzaSyAGRWVBWp-pJH9KD4XB2yedmv-2VQafbV4"
 const CHATGPT_API_KEY = "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"
+const REMOVE_BG_API_KEY = "q9wrwRUWDZb8D9jfKcakubeY"
 
 
 export default function AddToCloset({navigation}) {
