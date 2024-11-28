@@ -13,7 +13,6 @@ import Welcome from '../screens/Welcome';
 import LoginScreen from '../screens/LoginScreen';
 import SignUpScreen from '../screens/SignUpScreen';
 import ForgotPasswordScreen from '../screens/ForgotPasswordScreen';
-import WeatherOutfit from '../services/WeatherOutfit'; // Import WeatherOutfit
 
 // Define the navigators
 const Tab = createBottomTabNavigator();
@@ -49,8 +48,6 @@ const MainTabNavigator = () => {
             iconName = 'notifications-outline';
           } else if (route.name === 'Profile') {
             iconName = 'person-outline';
-          } else if (route.name === 'WeatherOutfit') {
-            iconName = 'cloud-outline';
           }
 
           return <Ionicons name={iconName} size={size} color={color} />;
@@ -66,17 +63,6 @@ const MainTabNavigator = () => {
       <Tab.Screen name="Post" component={PostScreen} />
       <Tab.Screen name="Notification" component={NotificationScreen} />
       <Tab.Screen name="Profile" component={UserProfile} />
-      <Tab.Screen
-        name="WeatherOutfit"
-        component={WeatherOutfit}
-        options={{
-        tabBarLabel: 'Weather Outfits',
-        tabBarIcon: ({ color, size }) => (
-      <Ionicons name="cloud-outline" size={size} color={color} />
-    ),
-  }}
-/>
-
     </Tab.Navigator>
   );
 };

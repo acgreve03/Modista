@@ -1,7 +1,7 @@
 import React from 'react';
 import { StyleSheet, StatusBar, View } from 'react-native';
 import AppNavigator from './navigation/AppNavigator'; // Importing the AppNavigator
-import WeatherOutfit from './services/WeatherOutfit';
+// import WeatherOutfit from './services/WeatherOutfit';  // Comment out or remove if not needed
 
 
 
