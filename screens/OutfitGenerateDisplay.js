@@ -8,6 +8,8 @@ import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { storage } from '../firebaseConfig'; // Adjust the path to your firebaseConfig file
 import { captureRef } from 'react-native-view-shot';
 import SavedOutfitPage from '../screens/Profile/Saved';
+import * as Location from 'expo-location';
+
 
 
 
@@ -70,8 +72,40 @@ const OutfitGenerateDisplay = () => {
     
         fetchData();
     }, []);
-    
 
+    const getUserLocation = async () => {
+        try {
+            // Request permissions to access location
+            const { status } = await Location.requestForegroundPermissionsAsync();
+            if (status !== 'granted') {
+                throw new Error("Permission to access location was denied");
+            }
+    
+            // Get the current position
+            const location = await Location.getCurrentPositionAsync({});
+            return { latitude: location.coords.latitude, longitude: location.coords.longitude };
+        } catch (error) {
+            console.error("Error getting user location:", error);
+            throw error;
+        }
+    };
+
+    const mapWeatherToSeason = (weatherData) => {
+        const temp = weatherData.main.temp; // Temperature in Celsius
+        const weatherDesc = weatherData.weather[0].description.toLowerCase();
+    
+        if (temp > 25 || weatherDesc.includes("hot")) {
+            return "Summer";
+        } else if (temp > 15 && temp <= 25) {
+            return "Spring";
+        } else if (temp > 5 && temp <= 15) {
+            return "Fall";
+        } else {
+            return "Winter";
+        }
+    };
+    
+    
     const handleGenerateOutfit = () => {
         if (loading) {
             console.log("Still loading closet items...");
@@ -84,10 +118,49 @@ const OutfitGenerateDisplay = () => {
         setModalVisible(true); // Open the modal to display the outfit
     };
 
-    const handleSurpriseOutfit = () => {
-        //const outfit = generateOutfit();
-        //setGeneratedOutfit(outfit);
+    const handleSurpriseOutfit = async () => {
+        if (loading) {
+            console.log("Still loading closet items...");
+            return;
+        }
+    
+        try {
+            // Step 1: Get user location using GPS
+            const location = await getUserLocation();
+            console.log("User's location:", location);
+            
+    
+            // Step 2: Fetch weather data based on the user's location
+            const weatherData = await fetchWeatherData(location.latitude, location.longitude);
+            const season = mapWeatherToSeason(weatherData);
+    
+            // Step 3: Generate a random occasion
+            const randomOccasion = null;
+    
+            console.log(`Occasion: ${randomOccasion}, Season: ${season}`);
+    
+            // Step 4: Generate the outfit based on the determined season and random occasion
+            const outfit = await generateOutfit(closetItems, season, randomOccasion);
+            setGeneratedOutfit(outfit); // Save generated outfit to state
+            setModalVisible(true);     // Open the modal to display the outfit
+        } catch (error) {
+            console.error("Error fetching weather or generating outfit:", error);
+        }
     };
+    
+    // Helper function to fetch weather data based on coordinates
+    const fetchWeatherData = async (latitude, longitude) => {
+        const apiKey = '4f0fafb5b38b0f6f31c735f817440265'        ; // Replace with your weather API key
+        const weatherUrl = `https://api.openweathermap.org/data/2.5/weather?lat=${latitude}&lon=${longitude}&appid=${apiKey}&units=metric`;
+    
+        const response = await fetch(weatherUrl);
+        if (!response.ok) {
+            throw new Error("Failed to fetch weather data");
+        }
+    
+        return await response.json();
+    };
+    
 
     const toggleSeason = (season) => {
         setSelectedSeason(selectedSeason === season ? null : season);  // Toggle season
@@ -133,14 +206,14 @@ const OutfitGenerateDisplay = () => {
                         </TouchableOpacity>
                     ))}
                 </View>
-            )}
+            )}  
 
             {/* Occasion Selector */}
             <TouchableOpacity
                 style={styles.selectorButton}
                 onPress={() => setSelectedType(selectedType ? null : "Choose Occasion")}
             >
-                <Text style={styles.selectorText}>{selectedType || "Choose Occasion"}</Text>
+                <Text style={styles.selectorText}>{selectedType || "Choose Style"}</Text>
             </TouchableOpacity>
 
             {selectedType === "Choose Occasion" && (
@@ -185,6 +258,13 @@ const OutfitGenerateDisplay = () => {
                 onPress={handleSurpriseOutfit}
             >
                 <Text style={styles.surpriseText}>Surprise Me!</Text>
+                {/* Conditionally render OutfitDisplay if generatedOutfit exists */}
+                {generatedOutfit && (
+                    <OutfitDisplay 
+                        generatedOutfit={generatedOutfit} 
+                        modalVisible={modalVisible} 
+                        setModalVisible={setModalVisible} 
+                    />)}
             </TouchableOpacity>
 
             
@@ -288,7 +368,7 @@ export const generateOutfit = async (closetItems, season, occasion) => {
     // if (accessories.length) {
     //   outfit.accessory = accessories[0]; // Select first available accessory
     // }
-    //console.log("Outfit generated with image URLs:", outfit);
+    console.log("Outfit generated with image URLs:", outfit);
 
   
     return outfit; // Return the generated outfit as an object
@@ -414,6 +494,7 @@ export const generateOutfit = async (closetItems, season, occasion) => {
 
 export const OutfitDisplay = ({ generatedOutfit, modalVisible, setModalVisible }) => {
 
+    console.log("generatedOutfit")
     const [loading, setLoading] = useState(false);
     const collageRef = useRef(null); // Define collageRef here
 
@@ -441,7 +522,7 @@ export const OutfitDisplay = ({ generatedOutfit, modalVisible, setModalVisible }
             const outfitsRef = collection(userRef, 'outfits');
 
             // Ensure `_j` exists
-            const items = generatedOutfit._j;
+            const items = generatedOutfit._j || generatedOutfit;
 
             if (!items) {
                 console.log("No valid `_j` found in generatedOutfit.");
@@ -540,10 +621,11 @@ export const OutfitDisplay = ({ generatedOutfit, modalVisible, setModalVisible }
     };
     
     const renderCollage = (generatedOutfit) => {
+    
         if (!generatedOutfit) return null;
         
         // Destructure top, bottom, and shoes from generatedOutfit
-        const { top, bottom, shoes } = generatedOutfit._j || {};
+        const { top, bottom, shoes } = generatedOutfit._j || generatedOutfit || {}; 
     
         // Determine if shoes are available
         const isShoesAvailable = shoes && shoes.imageUrl;
@@ -616,12 +698,7 @@ export const OutfitDisplay = ({ generatedOutfit, modalVisible, setModalVisible }
         </Modal>
     );
 };    
-    
-    
 
-    
-
-  
 
 const styles = StyleSheet.create({
     container: {
@@ -824,7 +901,8 @@ const styles = StyleSheet.create({
         marginHorizontal: 10, // Optional: more margin to give space on the sides
         alignItems: 'center',
         position: 'absolute',
-        bottom: 40,
+        bottom: 10,
+
     },
     saveText: {
         color: 'white',
