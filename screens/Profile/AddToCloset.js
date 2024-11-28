@@ -17,6 +17,7 @@ export default function AddToCloset({navigation}) {
     const [user, setUser] = useState(null);
     const [color, setColor] = useState('');
     const [subcategory, setSubcategory] = useState('');
+    const [category, setCategory] = useState('');
     const [occasion, setOccasion] = useState('');
     const [season, setSeason] = useState('');
   
@@ -51,6 +52,7 @@ export default function AddToCloset({navigation}) {
               setLoading(true);
               await addDoc(closetRef, {
               color,
+              category,
               subcategory,
               occasion,
               season,  
@@ -189,6 +191,15 @@ export default function AddToCloset({navigation}) {
             placeholder="subcategory"
             value={subcategory}
             onChangeText={setSubcategory}
+        />
+        <TextInput
+            style={{
+                position: 'relative',
+                top: 180
+            }}
+            placeholder="category"
+            value={category}
+            onChangeText={setCategory}
         />
         <TextInput
             style={{

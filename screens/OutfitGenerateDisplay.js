@@ -1,12 +1,14 @@
 import { useState, useEffect, useRef } from 'react';
 import { Modal, Alert, View, Text, TouchableOpacity, TextInput, StyleSheet, Image, ActivityIndicator } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation } from '@react-navigation/native';  // Make sure this is imported
 //import { fetchUserClosetItems, generateOutfit } from '../services/outfitGenerator'; // Assuming these are in outfitGeneration.js
 import {  addDoc, doc, getDoc, collection, getDocs } from 'firebase/firestore';
 import { db, auth } from '../firebaseConfig';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { storage } from '../firebaseConfig'; // Adjust the path to your firebaseConfig file
 import { captureRef } from 'react-native-view-shot';
+import SavedOutfitPage from '../screens/Profile/Saved';
+
 
 
 const OutfitGenerateDisplay = () => {
@@ -20,8 +22,9 @@ const OutfitGenerateDisplay = () => {
     const [userProfile, setUserProfile] = useState(null); // State for user profile
     const [modalVisible, setModalVisible] = useState(false);
 
-
     const navigation = useNavigation();
+
+
 
     useEffect(() => {
         const fetchData = async () => {
@@ -233,7 +236,7 @@ export const generateOutfit = async (closetItems, season, occasion) => {
       return (matchesSeason || matchesOccasion) && hasValidCategory && hasValidSubcategory && isValidUrl(item.imageUrl); //&& hasValidURL;
     });
   
-    //console.log(`Filtered items:`, filteredItems);
+    console.log(`Filtered items:`, filteredItems);
   
     if (filteredItems.length === 0) {
       //console.log('No items available for this season and occasion.');
@@ -246,21 +249,21 @@ export const generateOutfit = async (closetItems, season, occasion) => {
     const shoes = filteredItems.filter(item => item.category === 'Shoes');
     const accessories = filteredItems.filter(item => item.category === 'Accessory');
   
-    if (!tops.length || !bottoms.length){ //|| !shoes.length) {
-        
-      console.log('Missing essential components for outfit.');
-      if(!tops.length){
-        console.log('Missing top components for outfit.');
+    if (!tops.length || !bottoms.length || !shoes.length) {
+        console.log('Missing essential components for outfit.');
+        if (!tops.length) {
+          console.log('Missing top components for outfit.');
+        }
+        if (!bottoms.length) {
+          console.log('Missing bottom components for outfit.');
+        }
+        if (!shoes.length) {
+          console.log('Missing shoes components for outfit.');
+        }
+        return {}; // Return an empty object if one of the essential items is missing
       }
-      if(!bottoms.length){
-        console.log('Missing bottom essential components for outfit.');
-      }
-
-      return {}; // Return an empty object if one of the essential items is missing
-    }
   
     // Randomly select a top
-    
     const randomTop = tops[Math.floor(Math.random() * tops.length)];
     
     
@@ -278,7 +281,7 @@ export const generateOutfit = async (closetItems, season, occasion) => {
     const outfit = {
       top: randomTop, // Always use the randomly selected top
       bottom: colorFilteredBottoms.length > 0 ? colorFilteredBottoms[0] : bottoms[0], // Select based on color scheme, fallback to first item
-      //shoes: colorFilteredShoes.length > 0 ? colorFilteredShoes[0] : shoes[0], // Select based on color scheme, fallback to first item
+      shoes: colorFilteredShoes.length > 0 ? colorFilteredShoes[0] : shoes[0], // Select based on color scheme, fallback to first item
     };
   
     // // Add accessory if available
@@ -414,6 +417,8 @@ export const OutfitDisplay = ({ generatedOutfit, modalVisible, setModalVisible }
     const [loading, setLoading] = useState(false);
     const collageRef = useRef(null); // Define collageRef here
 
+    const navigation = useNavigation();
+
     // Close the modal
     const closeOutfit = () => {
         setModalVisible(false);
@@ -448,7 +453,7 @@ export const OutfitDisplay = ({ generatedOutfit, modalVisible, setModalVisible }
             const outfitData = {}; // This will hold the entire outfit
 
             // Loop through `top` and `bottom` keys in `generatedOutfit._j`
-            ['top', 'bottom'].forEach((key) => {
+            ['top', 'bottom', 'shoes'].forEach((key) => {
                 const item = items[key];
 
                 // Validate the item
@@ -482,7 +487,8 @@ export const OutfitDisplay = ({ generatedOutfit, modalVisible, setModalVisible }
                     createdAt: new Date(), // Optional: Add a timestamp
                 });
 
-                Alert.alert('Success', 'Outfit saved successfully!');
+                
+    
             } else {
                 Alert.alert('Error', 'No valid items to save.');
             }
@@ -491,6 +497,13 @@ export const OutfitDisplay = ({ generatedOutfit, modalVisible, setModalVisible }
             Alert.alert('Error', 'Failed to save outfit.');
         } finally {
             setLoading(false);
+            Alert.alert('Success', 'Outfit saved successfully!', [
+                {
+                    text: 'OK',
+                    onPress: () => navigation.navigate('Profile', { screen: 'Saved' })
+
+                },
+            ]);
         }
     };
 
@@ -500,6 +513,7 @@ export const OutfitDisplay = ({ generatedOutfit, modalVisible, setModalVisible }
             const uri = await captureRef(collageRef, {
                 format: 'png',
                 quality: 1.0,
+                
             });
     
             if (!uri) {
@@ -525,27 +539,46 @@ export const OutfitDisplay = ({ generatedOutfit, modalVisible, setModalVisible }
         }
     };
     
-    // Handling the collage render
     const renderCollage = (generatedOutfit) => {
-        
         if (!generatedOutfit) return null;
         
-        const items = Object.values(generatedOutfit._j).filter(item => item && item.imageUrl);
-        
+        // Destructure top, bottom, and shoes from generatedOutfit
+        const { top, bottom, shoes } = generatedOutfit._j || {};
+    
+        // Determine if shoes are available
+        const isShoesAvailable = shoes && shoes.imageUrl;
+    
         return (
             <View style={styles.collageContainer} ref={collageRef}>
-                {items.map((item, index) => (
-                    <Image
-                        key={index}
-                        source={{ uri: item.imageUrl }}
-                        style={styles.collageImage}
-                    />
-                ))}
+                <View style={[styles.mainRowContainer, isShoesAvailable ? styles.mainWithShoes : null]}>
+                    {/* Display the top */}
+                    <View style={styles.topContainer}>
+                        {top?.imageUrl && (
+                            <Image source={{ uri: top.imageUrl }} style={styles.collageImage} />
+                        )}
+                    </View>
+    
+                    {/* Display the bottom */}
+                    <View style={styles.bottomContainer}>
+                        {bottom?.imageUrl && (
+                            <Image source={{ uri: bottom.imageUrl }} style={styles.collageImage} />
+                        )}
+                    </View>
+                </View>
+    
+                {/* Display shoes if available */}
+                {isShoesAvailable && (
+                    <View style={styles.shoesContainer}>
+                        {shoes?.imageUrl && (
+                            <Image source={{ uri: shoes.imageUrl }} style={styles.collageImage} />
+                        )}
+                    </View>
+                )}
             </View>
         );
     };
     
-
+    
     return (
         <Modal
             animationType="slide"
@@ -556,25 +589,23 @@ export const OutfitDisplay = ({ generatedOutfit, modalVisible, setModalVisible }
             <View style={styles.modalBackground}>
                 <View style={styles.modalContainer}>
                     <Text style={styles.modalTitle}>Your Outfit</Text>
-
+    
                     {/* Show loading spinner if `loading` is true */}
-                {loading ? (
-                    <ActivityIndicator size="large" color="#0000ff" style={styles.loader} />
-                ) : (
-                    <View style={styles.collageContainer} ref={collageRef}>
-                        {renderCollage(generatedOutfit)}
-                    </View>
-                )}
-
-
-                    <TouchableOpacity 
+                    {loading ? (
+                        <ActivityIndicator size="large" color="#0000ff" style={styles.loader} />
+                    ) : (
+                        <View style={styles.collageContainer} ref={collageRef}>
+                            {renderCollage(generatedOutfit)}
+                        </View>
+                    )}
+    
+                    <TouchableOpacity
                         style={styles.saveButton}
-                        //onPress={saveOutfit}
                         onPress={() => handleSaveOutfit(generatedOutfit)}
                     >
                         <Text style={styles.saveText}>Save Outfit</Text>
                     </TouchableOpacity>
-                    <TouchableOpacity 
+                    <TouchableOpacity
                         style={styles.closeButton}
                         onPress={closeOutfit}
                     >
@@ -584,7 +615,11 @@ export const OutfitDisplay = ({ generatedOutfit, modalVisible, setModalVisible }
             </View>
         </Modal>
     );
-    };
+};    
+    
+    
+
+    
 
   
 
@@ -802,15 +837,35 @@ const styles = StyleSheet.create({
         fontSize: 16,
     },
     collageContainer: {
-        flexDirection: 'row',
-        flexWrap: 'wrap',
-        justifyContent: 'space'
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    mainRowContainer: {
+        flexDirection: 'row', // Default: top and bottom side by side
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    mainWithShoes: {
+        flexDirection: 'row', // Ensure the row layout is used even with shoes
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    topContainer: {
+        marginBottom: 10, // Space between top and bottom when shoes are not available
+    },
+    bottomContainer: {
+        marginLeft: 10, // Space between top and bottom when side by side
+    },
+    shoesContainer: {
+        marginTop: 10, // Space between top and shoes when stacked below top
+        justifyContent: 'center',
+        alignItems: 'center',
     },
     collageImage: {
-        width: 120,
-        height: 150,
-        margin: 5,
-        borderRadius: 10,
+        width: 100, // Adjust the image size as necessary
+        height: 100,
+        resizeMode: 'contain',
     },
     closeButtonModista: {
         position: 'absolute',
