@@ -1,40 +1,70 @@
 import React, { useState } from 'react';
 import { View, Text, TextInput, Image, StyleSheet, TouchableOpacity } from 'react-native';
-import { FontAwesome } from '@expo/vector-icons'; // Import icons from @expo/vector-icons
+import { FontAwesome } from '@expo/vector-icons';
 
 /**
  * SearchScreen Component
- * A screen for browsing and searching for outfit inspirations.
+ * A screen for browsing and searching for outfit inspirations with advanced recommendations.
  */
 export default function SearchScreen() {
-  // State to hold search query
   const [query, setQuery] = useState('');
-  
-  // State to store filtered search results based on query
   const [results, setResults] = useState([]);
 
-  // Sample outfits data, could be fetched from an API in a real app
+  // Sample data for outfits with categories and views to simulate popularity
   const outfits = [
-    { id: 1, name: 'Autumn Outfit', image: 'https://via.placeholder.com/150' },
-    { id: 2, name: 'Sweater Weather', image: 'https://via.placeholder.com/150' },
-    { id: 3, name: 'Chic Skirts', image: 'https://via.placeholder.com/150' },
+    { id: 1, name: 'Autumn Outfit', category: 'Casual', views: 200, image: 'https://via.placeholder.com/150' },
+    { id: 2, name: 'Sweater Weather', category: 'Comfy', views: 500, image: 'https://via.placeholder.com/150' },
+    { id: 3, name: 'Chic Skirts', category: 'Classy', views: 150, image: 'https://via.placeholder.com/150' },
+    { id: 4, name: 'Winter Coat', category: 'Warm', views: 300, image: 'https://via.placeholder.com/150' },
   ];
 
+  // Mock data for recent searches and collaborative filtering
+  const recentSearches = ['Casual', 'Warm', 'Sweater'];
+  const collaborativeData = {
+    'Casual': ['Sweater Weather', 'Winter Coat'],  // Users who searched 'Casual' also liked these
+    'Warm': ['Autumn Outfit', 'Chic Skirts']
+  };
+
   /**
-   * Filters the list of outfits based on the search query.
+   * Filters and recommends outfits based on the search query using multiple recommendation layers.
    * @param {string} text - The current input in the search bar.
    */
   const handleSearch = (text) => {
-    setQuery(text); // Update the query state
-    // Filter outfits by matching the query with the outfit name
-    const filteredResults = outfits.filter((item) =>
-      item.name.toLowerCase().includes(text.toLowerCase())
-    );
-    // Update results if any matches are found, otherwise clear
-    setResults(filteredResults.length > 0 ? filteredResults : []);
+    setQuery(text);
+    let filteredResults = [];
+
+    if (text) {
+      // Exact matches by name or category
+      filteredResults = outfits.filter((item) =>
+        item.name.toLowerCase().includes(text.toLowerCase()) || 
+        item.category.toLowerCase().includes(text.toLowerCase())
+      );
+
+      // If no exact matches, recommend items based on collaborative filtering
+      if (filteredResults.length === 0) {
+        const relatedItems = collaborativeData[text];
+        if (relatedItems) {
+          filteredResults = outfits.filter((item) =>
+            relatedItems.includes(item.name)
+          );
+        }
+      }
+
+      // Apply a weighted scoring system to rank results by popularity and relevance
+      filteredResults = filteredResults.map((item) => ({
+        ...item,
+        score: (item.views / 100) + (recentSearches.includes(item.category) ? 2 : 0)
+      }));
+      filteredResults.sort((a, b) => b.score - a.score); // Sort by highest score
+    } else {
+      // Show popular items if no search query
+      filteredResults = outfits.sort((a, b) => b.views - a.views);
+    }
+
+    setResults(filteredResults);
   };
 
-  // Determine which data to display: search results or all outfits
+  // Display either search results or popular items as recommendations
   const dataToDisplay = results.length > 0 ? results : outfits;
 
   return (
@@ -47,29 +77,26 @@ export default function SearchScreen() {
           value={query}
           onChangeText={handleSearch}
         />
-        {/* Icon for filter settings */}
         <FontAwesome name="sliders" size={24} color="#888" style={styles.icon} />
       </View>
 
       {/* Tag Section: Displays clickable tags for filtering */}
       <View style={styles.tagContainer}>
-        {['Casual', 'Classy', 'Comfy'].map((tag) => (
+        {['Casual', 'Classy', 'Comfy', 'Warm'].map((tag) => (
           <TouchableOpacity key={tag} style={styles.tag}>
             <Text style={styles.tagText}>{tag}</Text>
           </TouchableOpacity>
         ))}
       </View>
 
-      {/* Section Title for outfit inspiration */}
-      <Text style={styles.sectionTitle}>More Inspo</Text>
+      {/* Section Title */}
+      <Text style={styles.sectionTitle}>{query ? "Search Results" : "Popular Now"}</Text>
 
       {/* Grid Layout for Outfits */}
       <View style={styles.grid}>
         {dataToDisplay.map((outfit) => (
           <View key={outfit.id} style={styles.outfitCard}>
-            {/* Display outfit image */}
             <Image source={{ uri: outfit.image }} style={styles.outfitImage} />
-            {/* Display outfit name */}
             <Text style={styles.outfitName}>{outfit.name}</Text>
           </View>
         ))}
@@ -85,14 +112,12 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
   },
   searchContainer: {
-    // Styles for the search bar container
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 16,
     paddingVertical: 8,
   },
   searchInput: {
-    // Styles for the search input box
     flex: 1,
     height: 40,
     borderColor: '#ccc',
@@ -102,17 +127,14 @@ const styles = StyleSheet.create({
     marginRight: 10,
   },
   icon: {
-    // Style for the filter icon next to search input
     marginLeft: 10,
   },
   tagContainer: {
-    // Styles for the container holding the tags
     flexDirection: 'row',
     paddingHorizontal: 16,
     marginTop: 10,
   },
   tag: {
-    // Style for individual tags
     backgroundColor: '#f0f0f0',
     borderRadius: 20,
     paddingHorizontal: 12,
@@ -120,19 +142,16 @@ const styles = StyleSheet.create({
     marginRight: 10,
   },
   tagText: {
-    // Style for the text within each tag
     fontSize: 14,
     color: '#333',
   },
   sectionTitle: {
-    // Style for section titles like "More Inspo"
     fontSize: 20,
     fontWeight: 'bold',
     marginHorizontal: 16,
     marginTop: 20,
   },
   grid: {
-    // Styles for the outfit grid layout
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'space-around',
@@ -140,19 +159,16 @@ const styles = StyleSheet.create({
     paddingTop: 10,
   },
   outfitCard: {
-    // Styles for individual outfit cards
     width: '45%',
     marginBottom: 20,
     alignItems: 'center',
   },
   outfitImage: {
-    // Styles for the outfit image
     width: '100%',
     height: 150,
     borderRadius: 10,
   },
   outfitName: {
-    // Style for outfit name text below each image
     marginTop: 8,
     fontSize: 16,
     fontWeight: '500',
