@@ -4,6 +4,10 @@ import { FontAwesome } from '@expo/vector-icons';
 import { db, auth } from '../firebaseConfig';
 import { collection, query, where, getDocs } from 'firebase/firestore';
 
+/**
+ * SearchScreen Component
+ * A screen for browsing and searching for outfit inspirations with advanced recommendations.
+ */
 export default function SearchScreen() {
   const [query, setQuery] = useState('');
   const [results, setResults] = useState([]);
@@ -119,7 +123,7 @@ export default function SearchScreen() {
       </View>
 
       <View style={styles.tagContainer}>
-        {['Casual', 'Classy', 'Comfy'].map((tag) => (
+        {['Casual', 'Classy', 'Comfy', 'Warm'].map((tag) => (
           <TouchableOpacity 
             key={tag} 
             style={styles.tag}
@@ -193,10 +197,11 @@ const styles = StyleSheet.create({
     marginRight: 8,
   },
   tagText: {
+    fontSize: 14,
     color: '#333',
   },
   sectionTitle: {
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: 'bold',
     marginBottom: 16,
   },
@@ -206,8 +211,9 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   outfitCard: {
-    width: '48%',
-    marginBottom: 16,
+    width: '45%',
+    marginBottom: 20,
+    alignItems: 'center',
   },
   outfitImage: {
     width: '100%',
