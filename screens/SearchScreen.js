@@ -1,41 +1,46 @@
 import React, { useState } from 'react';
 import { View, Text, TextInput, Image, StyleSheet, TouchableOpacity } from 'react-native';
-import { FontAwesome } from '@expo/vector-icons'; // Import icons from @expo/vector-icons
+import { FontAwesome } from '@expo/vector-icons';
+import { collection, getDocs, query, where } from 'firebase/firestore';
+import { db } from '../firebaseConfig';
 
-/**
- * SearchScreen Component
- * A screen for browsing and searching for outfit inspirations.
- */
 export default function SearchScreen() {
-  // State to hold search query
-  const [query, setQuery] = useState('');
-  
-  // State to store filtered search results based on query
-  const [results, setResults] = useState([]);
-
-  // Sample outfits data, could be fetched from an API in a real app
-  const outfits = [
-    { id: 1, name: 'Autumn Outfit', image: 'https://via.placeholder.com/150' },
-    { id: 2, name: 'Sweater Weather', image: 'https://via.placeholder.com/150' },
-    { id: 3, name: 'Chic Skirts', image: 'https://via.placeholder.com/150' },
-  ];
+  const [searchQuery, setSearchQuery] = useState('');
+  const [isSearching, setIsSearching] = useState(false);
+  const [userResults, setUserResults] = useState([]);
+  const [isFocused, setIsFocused] = useState(false); // Track if the search bar is focused
 
   /**
-   * Filters the list of outfits based on the search query.
-   * @param {string} text - The current input in the search bar.
+   * Handles the search logic to filter users by their username.
+   * @param {string} text - Input from the search bar.
    */
-  const handleSearch = (text) => {
-    setQuery(text); // Update the query state
-    // Filter outfits by matching the query with the outfit name
-    const filteredResults = outfits.filter((item) =>
-      item.name.toLowerCase().includes(text.toLowerCase())
-    );
-    // Update results if any matches are found, otherwise clear
-    setResults(filteredResults.length > 0 ? filteredResults : []);
-  };
+  const handleSearch = async (text) => {
+    setSearchQuery(text);
+    if (text.trim() === '') {
+      setUserResults([]);
+      return;
+    }
+    setIsSearching(true);
+    try {
+      const usersCollection = collection(db, 'users');
+      const usersQuery = query(
+        usersCollection,
+        where('userName', '>=', text),
+        where('userName', '<=', text + '\uf8ff')
+      );
+      const snapshot = await getDocs(usersQuery);
 
-  // Determine which data to display: search results or all outfits
-  const dataToDisplay = results.length > 0 ? results : outfits;
+      const results = snapshot.docs.map((doc) => ({
+        id: doc.id,
+        ...doc.data(),
+      }));
+      setUserResults(results);
+    } catch (error) {
+      console.error('Error fetching users:', error);
+    } finally {
+      setIsSearching(false);
+    }
+  };
 
   return (
     <View style={styles.container}>
@@ -44,36 +49,63 @@ export default function SearchScreen() {
         <TextInput
           style={styles.searchInput}
           placeholder="Search"
-          value={query}
+          value={searchQuery}
           onChangeText={handleSearch}
+          onFocus={() => setIsFocused(true)}
+          onBlur={() => !searchQuery && setIsFocused(false)} // Revert focus if query is empty
         />
-        {/* Icon for filter settings */}
         <FontAwesome name="sliders" size={24} color="#888" style={styles.icon} />
       </View>
 
-      {/* Tag Section: Displays clickable tags for filtering */}
-      <View style={styles.tagContainer}>
-        {['Casual', 'Classy', 'Comfy'].map((tag) => (
-          <TouchableOpacity key={tag} style={styles.tag}>
-            <Text style={styles.tagText}>{tag}</Text>
-          </TouchableOpacity>
-        ))}
-      </View>
-
-      {/* Section Title for outfit inspiration */}
-      <Text style={styles.sectionTitle}>More Inspo</Text>
-
-      {/* Grid Layout for Outfits */}
-      <View style={styles.grid}>
-        {dataToDisplay.map((outfit) => (
-          <View key={outfit.id} style={styles.outfitCard}>
-            {/* Display outfit image */}
-            <Image source={{ uri: outfit.image }} style={styles.outfitImage} />
-            {/* Display outfit name */}
-            <Text style={styles.outfitName}>{outfit.name}</Text>
+      {/* Conditional Rendering for Search Results or Default View */}
+      {isFocused || searchQuery ? (
+        // Display user search results
+        isSearching ? (
+          <Text style={styles.loadingText}>Searching...</Text>
+        ) : userResults.length > 0 ? (
+          <View>
+            {userResults.map((user) => (
+              <TouchableOpacity
+                key={user.id}
+                style={styles.userCard}
+                onPress={() => console.log(`Navigate to ${user.userName}'s profile`)}
+              >
+                <Image
+                  source={{ uri: user.profilePictureURL || 'https://via.placeholder.com/150' }}
+                  style={styles.userAvatar}
+                />
+                <Text style={styles.userName}>{user.userName}</Text>
+              </TouchableOpacity>
+            ))}
           </View>
-        ))}
-      </View>
+        ) : (
+          <Text style={styles.noResultsText}>No results found</Text>
+        )
+      ) : (
+        // Default view when search is not active
+        <>
+          <View style={styles.tagContainer}>
+            {['Casual', 'Classy', 'Comfy', 'Formal', 'Cozy', 'Warm', 'Spring', 'Fall'].map((tag) => (
+              <TouchableOpacity key={tag} style={styles.tag}>
+                <Text style={styles.tagText}>{tag}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+          <Text style={styles.sectionTitle}>More Inspo</Text>
+          <View style={styles.grid}>
+            {[
+              { id: 1, name: 'Autumn Outfit', image: 'https://via.placeholder.com/150' },
+              { id: 2, name: 'Sweater Weather', image: 'https://via.placeholder.com/150' },
+              { id: 3, name: 'Chic Skirts', image: 'https://via.placeholder.com/150' },
+            ].map((outfit) => (
+              <View key={outfit.id} style={styles.outfitCard}>
+                <Image source={{ uri: outfit.image }} style={styles.outfitImage} />
+                <Text style={styles.outfitName}>{outfit.name}</Text>
+              </View>
+            ))}
+          </View>
+        </>
+      )}
     </View>
   );
 }
@@ -85,14 +117,12 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
   },
   searchContainer: {
-    // Styles for the search bar container
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 16,
     paddingVertical: 8,
   },
   searchInput: {
-    // Styles for the search input box
     flex: 1,
     height: 40,
     borderColor: '#ccc',
@@ -102,17 +132,14 @@ const styles = StyleSheet.create({
     marginRight: 10,
   },
   icon: {
-    // Style for the filter icon next to search input
     marginLeft: 10,
   },
   tagContainer: {
-    // Styles for the container holding the tags
     flexDirection: 'row',
     paddingHorizontal: 16,
     marginTop: 10,
   },
   tag: {
-    // Style for individual tags
     backgroundColor: '#f0f0f0',
     borderRadius: 20,
     paddingHorizontal: 12,
@@ -120,19 +147,16 @@ const styles = StyleSheet.create({
     marginRight: 10,
   },
   tagText: {
-    // Style for the text within each tag
     fontSize: 14,
     color: '#333',
   },
   sectionTitle: {
-    // Style for section titles like "More Inspo"
     fontSize: 20,
     fontWeight: 'bold',
     marginHorizontal: 16,
     marginTop: 20,
   },
   grid: {
-    // Styles for the outfit grid layout
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'space-around',
@@ -140,22 +164,50 @@ const styles = StyleSheet.create({
     paddingTop: 10,
   },
   outfitCard: {
-    // Styles for individual outfit cards
     width: '45%',
     marginBottom: 20,
     alignItems: 'center',
   },
   outfitImage: {
-    // Styles for the outfit image
     width: '100%',
     height: 150,
     borderRadius: 10,
   },
   outfitName: {
-    // Style for outfit name text below each image
     marginTop: 8,
     fontSize: 16,
     fontWeight: '500',
     textAlign: 'center',
+  },
+  loadingText: {
+    textAlign: 'center',
+    color: '#888',
+    marginVertical: 8,
+  },
+  noResultsText: {
+    textAlign: 'center',
+    color: '#888',
+    marginVertical: 8,
+  },
+  userCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+    padding: 10,
+    backgroundColor: '#fff',
+    borderRadius: 8,
+    borderColor: '#ddd',
+    borderWidth: 1,
+  },
+  userAvatar: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    marginRight: 10,
+  },
+  userName: {
+    fontSize: 16,
+    fontWeight: '500',
+    color: '#333',
   },
 });
