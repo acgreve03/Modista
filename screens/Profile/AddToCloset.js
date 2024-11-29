@@ -38,34 +38,34 @@ export default function AddToCloset({navigation}) {
     
     const onSubmit = async (data) => {
 
-        if (!user) {
-            Alert.alert('User not authenticated');
-            return;
-          }
+      if (!user) {
+        Alert.alert('User not authenticated');
+        return;
+      }
+
       try {
-          // Create a reference to the user's document in Firestore and make collection
           const userRef = doc(db, 'users', user.uid);
           const closetRef = collection(userRef, 'closet');
 
-          // Add the item data to the document
+        let imageUrl = '';
+          if (closetItemUrl) {
+            imageUrl = await uploadImage(closetItemUrl);
+
               setLoading(true);
               await addDoc(closetRef, {
               color,
               subcategory,
               occasion,
               season,  
-              closetItemUrl: closetItemUrl //Url which leads to the actual image location
+              closetItemUrl: imageUrl
 
               });
-  
-              //Uploading the actual image to firestore
-              if (closetItemUrl) {
-                  await uploadImage(closetItemUrl);
-              }
               setLoading(false);
-                // Navigate to the profile screen after successfully adding to closet
               navigation.navigate('Profile');
-  
+          }
+          else {
+            Alert.alert("Please choose an item")
+          }
       } catch (error) {
         console.error('Error adding to closet:', error);
       }
@@ -80,14 +80,13 @@ export default function AddToCloset({navigation}) {
       );
     }
   
-  
     const pickImageFromGallery = async () => {
       try {
           setClosetItemUrl(null);
           const result = await ImagePicker.launchImageLibraryAsync({
-          mediaTypes: ImagePicker.MediaTypeOptions.Images,
+          mediaTypes: "Images",
           allowsEditing: true,
-          aspect: [4, 3],
+          aspect: [1],
           quality: 1,
         });
   
@@ -105,9 +104,9 @@ export default function AddToCloset({navigation}) {
       try {
           setClosetItemUrl(null);
           const result = await ImagePicker.launchCameraAsync({
-          mediaTypes: ImagePicker.MediaTypeOptions.Images,
+          mediaTypes: "Images",
           allowsEditing: true,
-          aspect: [4, 3],
+          aspect: [1],
           quality: 1,
         });
   
@@ -146,7 +145,6 @@ export default function AddToCloset({navigation}) {
         }
     };
   
-    // Requesting camera and camera roll access
     const requestPermissions = async () => {
       const { status: cameraStatus } = await ImagePicker.requestCameraPermissionsAsync();
       const { status: galleryStatus } = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -156,89 +154,32 @@ export default function AddToCloset({navigation}) {
       }
     };
   
-  
     return (
       <View style={styles.container}>
   
   
         <Text style={styles.title}>Add to closet</Text>
 
-        <TouchableOpacity style = {styles.button2} onPress={() => { pickImageFromCamera() }} >
+        <View style={styles.buttonRow}>
+        <TouchableOpacity style = {styles.button3} onPress={() => { pickImageFromCamera() }} >
           <Ionicons name="camera" size='40' color={'purple'}></Ionicons>
         </TouchableOpacity>
 
         <TouchableOpacity style = {styles.button3} onPress={() => { pickImageFromGallery() }} >
           <Ionicons name="image" size='40' color={'purple'}></Ionicons>
         </TouchableOpacity>
+        </View>
 
-
-        <TextInput
-            style={{
-                position: 'relative',
-                top: 180
-            }}
-            placeholder="color"
-            value={color}
-            onChangeText={setColor}
-        />
-        <TextInput
-            style={{
-                position: 'relative',
-                top: 180
-            }}
-            placeholder="subcategory"
-            value={subcategory}
-            onChangeText={setSubcategory}
-        />
-        <TextInput
-            style={{
-                position: 'relative',
-                top: 180
-            }}
-            placeholder="occasion"
-            value={occasion}
-            onChangeText={setOccasion}
-            multiline
-        />
-        <TextInput
-            style={{
-                position: 'relative',
-                top: 180
-            }}
-            placeholder="season"
-            value={season}
-            onChangeText={setSeason}
-            multiline
-        />
-
-        <View
-        style={{
-            borderRadius: 50,
-            borderWidth: 1,
-            borderColor: 'gray',
-            padding: 0,
-            width: 300,
-            height: 300,
-            justifyContent: 'center',
-            alignItems: 'center',
-            overflow: 'hidden',
-            alignSelf: 'center',
-            top: 450,
-            position: 'absolute'
-        }}
-      >
+        <View style={styles.selectedItemContainer}>
         {closetItemUrl ? (
             <Image
                 source={{ uri: closetItemUrl }}
-                style={{ width: '100%', height: '100%', alignSelf: 'center' }}
-                resizeMode="cover" 
+                style={styles.selectedItemImage}
             />
         ) : (
-            <Text style={{ textAlign: 'center', fontSize: 10 }}>Nice Choice</Text>
+            <Text style={{ textAlign: 'center', fontSize: 10 }}>Item</Text>
         )}
       </View>
-  
-  
         <TouchableOpacity style={[styles.button, buttonPressed ? styles.buttonPressed : styles.button]} 
             onPressIn={() => setButtonPressed(true)}
             onPressOut={() => setButtonPressed(false)} 
@@ -251,41 +192,27 @@ export default function AddToCloset({navigation}) {
   }
   
   const styles = StyleSheet.create({
-      container: {
-        flex: 1,
-        padding: 16,
-        backgroundColor: '#ffff',
+      container: { 
+        flex: 1, 
+        padding: 20, 
+        backgroundColor: 'transparent',
+        marginTop: 50,
       },
       title: {
         fontSize: 25,
         fontWeight: 'regular',
-        marginTop: 115,
-        marginBottom: 8,
+        marginBottom: 20,
         textAlign: 'left',
         fontFamily: 'Helvetica'
-      },
-      error: {
-        color: 'red',
-        height: 20, 
-        margintop: 5,
-      },
-      inputWithLine: {
-        height: 40,
-        borderBottomWidth: 1,  
-        borderBottomColor: '#cccc',  
-        paddingHorizontal: 8,
-        marginBottom: 0
       },
       button: {
         borderWidth: 1,
         borderColor: "purple",
+        borderRadius: 10,
         backgroundColor: 'transparent', 
         paddingVertical: 12,
         paddingHorizontal: 20, 
         alignItems: 'center',
-        marginTop: 220, 
-        position: 'absolute',
-        bottom: 90,
         width: '95%',
         alignSelf: 'center'
       },
@@ -293,60 +220,52 @@ export default function AddToCloset({navigation}) {
         color: "purple", 
         fontSize: 15, 
         fontWeight: 'regular', 
-        fontFamily: "Helvetica"
       },
       buttonPressed: {
-        borderWidth: 1,
-        borderColor: "purple",
         backgroundColor: "purple", 
       },
       buttonTextPressed: {
-        fontSize: 15, 
         color: 'white', 
-        fontWeight: 'regular', 
-        fontFamily: "Helvetica"
-      },
-      inputWrapper: {
-        marginBottom: 30,
-      },
-      bioInput: {
-          height: 100,
-          borderColor: '#ccc',
-          borderWidth: 1,
-          padding: 10,
-          borderRadius: 5,
       },
       loadingContainer: {
           flex: 1,
           justifyContent: 'center',
           alignItems: 'center',
       },
-      button2: {
-        borderRadius: 20,
-        borderWidth: 1,
-        borderColor: 'purple',
-        paddingVertical: 12,
-        alignItems: 'center',
-        position: 'absolute',
-        bottom: 600,
-        right: 230,
-        width: 150,
-        height: 150,
-        alignSelf: 'center',
-        justifyContent: 'center'
-      },
       button3: {
         borderRadius: 20,
         borderWidth: 1,
         borderColor: 'purple',
-        paddingVertical: 12,
+        padding: 10,
         alignItems: 'center',
-        position: 'absolute',
-        bottom: 600,
-        right: 50,
+        justifyContent: 'center',
         width: 150,
         height: 150,
-        alignSelf: 'center',
-        justifyContent: 'center'
-      },
+    },
+      buttonRow: {
+        flexDirection: 'row',
+        justifyContent: 'space-evenly',
+        alignItems: 'center',
+        marginVertical: 10,
+    },
+    selectedItemContainer: {
+      alignItems: 'center',
+      alignSelf: 'center',
+      justifyContent: 'center',
+      borderColor: '#ccc',
+      borderWidth: 1,
+      borderRadius: 10,
+      marginBottom: 20,
+      marginTop: 20,
+      width: '45%',
+      height: '45%',
+      aspectRatio: 1
+  },
+  selectedItemImage: {
+      width: '100%',
+      height: '100%',
+      borderRadius: 10,
+      resizeMode: 'contain',
+      aspectRatio: 1
+  },
     });
