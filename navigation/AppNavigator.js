@@ -129,7 +129,6 @@ function App() {
         <Stack.Screen name="AddToCloset" component={AddToCloset} />
         <Stack.Screen name="PostDetailsScreen" component={PostDetailsScreen} />
         <Stack.Screen name="Outfits" component={Outfits} />
-        <Stack.Screen name="PostDetails" component={PostDetailsScreen} />
         <Stack.Screen name="Main" component={MainTabs}>
         </Stack.Screen>
       </Stack.Navigator>
