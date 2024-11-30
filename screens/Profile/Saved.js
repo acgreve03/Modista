@@ -269,7 +269,7 @@ const styles = StyleSheet.create({
         fontSize: 24,
         fontWeight: 'bold',
         marginBottom: 10,
-        alignContent: 'center'
+        textAlign: 'center'
     },
     grid: {
         flexDirection: 'row',
