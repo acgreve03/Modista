@@ -19,6 +19,7 @@ import ProfileCreation from '../screens/Profile/ProfileCreation';
 import AddToCloset from '../screens/Profile/AddToCloset';
 import PostDetailsScreen from '../screens/PostDetailScreen';
 import Outfits from '../screens/Profile/Outfits';
+import ProfileEdit from '../screens/Profile/ProfileEdit';
 
 // Create the Tab Navigator for the Main Page
 const Tab = createBottomTabNavigator();
@@ -125,6 +126,7 @@ function App() {
         <Stack.Screen name="ForgotPassword" component={ForgotPasswordScreen} />
         <Stack.Screen name="SignUp" component={SignUpScreen} /> 
         <Stack.Screen name="ProfileCreation" component={ProfileCreation} />
+        <Stack.Screen name="ProfileEdit" component={ProfileEdit} />
         <Stack.Screen name="PostScreen" component={PostScreen} />
         <Stack.Screen name="AddToCloset" component={AddToCloset} />
         <Stack.Screen name="PostDetailsScreen" component={PostDetailsScreen} />
