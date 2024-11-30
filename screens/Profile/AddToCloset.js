@@ -172,9 +172,6 @@ export default function AddToCloset({navigation}) {
         </TouchableOpacity>
         </View>
 
-<<<<<<< HEAD
-        <View style={styles.selectedItemContainer}>
-=======
 
         <TextInput
             style={{
@@ -240,7 +237,6 @@ export default function AddToCloset({navigation}) {
             position: 'absolute'
         }}
       >
->>>>>>> outfitgeneration
         {closetItemUrl ? (
             <Image
                 source={{ uri: closetItemUrl }}
