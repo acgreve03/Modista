@@ -4,6 +4,7 @@ import { useNavigation } from '@react-navigation/native';
 import { signInWithEmailAndPassword } from 'firebase/auth';
 import { auth } from '../firebaseConfig';
 import { useForm, Controller } from 'react-hook-form';
+import { CommonActions } from '@react-navigation/native';
 
 /**
  * This component handles user login with email and password authentication
@@ -23,7 +24,12 @@ const LoginScreen = () => {
       //Attempts to sign in using Firebase Authentication
       await signInWithEmailAndPassword(auth, email, password);
       Alert.alert('Login Successful', 'Welcome back!');
-      navigation.navigate('Main'); //Navigates to main screen upon successful login
+      navigation.dispatch(
+        CommonActions.reset({
+          index: 0, // Index of the active route
+          routes: [{ name: 'Main' }], // TargetScreen becomes the only route
+        })
+      ); //Navigates to main screen upon successful login
     } catch (err) {
       //Shows error message if login fails
       Alert.alert('Login Error', err.message);
