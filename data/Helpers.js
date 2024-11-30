@@ -79,12 +79,14 @@ export const fetchClothingCategoriesFromChatGPT = async (labels, chatGPTKey) => 
     const prompt = `From these labels:\n${labels.join(
       ", "
     )}, provide the following information:
-    - Clothing type
+    - Clothing type(only choose from the following: top, bottom, shoe, or accesory)
+    - Clothing subtype(e.g. T-shirt, hoodie, blazer, skirt, dresspants, etc.)
     - Appropriate occasion (e.g., casual, formal, etc.)
     - Suitable season (e.g., summer, winter, etc.)
     
     Respond in the following format:
     Clothing Type: <type>
+    Clothing Subtype: <subtype>
     Occasion: <occasion>
     Season: <season>`;
     const response = await axios.post(
@@ -103,14 +105,16 @@ export const fetchClothingCategoriesFromChatGPT = async (labels, chatGPTKey) => 
 
     const chatGPTResponse = response.data.choices[0].message.content.trim();
     const clothingType = chatGPTResponse.match(/Clothing Type: (.*)/)?.[1] || "";
+    const clothingSubType = chatGPTResponse.match(/Clothing Subtype: (.*)/)?.[1] || "";
     const occasion = chatGPTResponse.match(/Occasion: (.*)/)?.[1] || "";
     const season = chatGPTResponse.match(/Season: (.*)/)?.[1] || "";
 
-    return { clothingType, occasion, season };
+    return { clothingType, clothingSubType, occasion, season };
   } catch (error) {
     console.error('Error fetching clothing categories from ChatGPT:', error);
     return {
         clothingType: "",
+        clothingSubType: "",
         occasion: "",
         season: "",
       };

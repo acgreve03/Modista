@@ -21,6 +21,7 @@ export default function AddToCloset({navigation}) {
     const [loading, setLoading] = useState(false);
     const [user, setUser] = useState(null);
     const [color, setColor] = useState('');
+    const [category, setCategory] = useState('');
     const [subcategory, setSubcategory] = useState('');
     const [occasion, setOccasion] = useState('');
     const [season, setSeason] = useState('');
@@ -188,10 +189,10 @@ const handleAnalyzeImage = async () => {
       CHATGPT_API_KEY
     );
 
-    const { clothingType, occasion, season } = clothingCategories;
+    const { clothingType, clothingSubType, occasion, season } = clothingCategories;
 
-
-    setSubcategory(clothingType);
+    setCategory(clothingType);
+    setSubcategory(clothingSubType);
     setColor(detectedColorName);
     setOccasion(occasion);
     setSeason(season);
@@ -412,6 +413,12 @@ const pickImageFromCamera = async () => {
           placeholder="Color"
           value={color}
           onChangeText={setColor}
+        />
+        <TextInput
+          style={{ position: 'relative', top: 60 }}
+          placeholder="Category"
+          value={category}
+          onChangeText={setCategory}
         />
         <TextInput
           style={{ position: 'relative', top: 60 }}
