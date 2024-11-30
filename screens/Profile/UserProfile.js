@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, Image, TouchableOpacity, ActivityIndicator, ScrollView, Modal, Button, FlatList } from 'react-native';
+import { View, Text, StyleSheet, Image, TouchableOpacity, ActivityIndicator, ScrollView, Modal, FlatList } from 'react-native';
 import Outfits from './Outfits'; // Import the OutfitsGrid component
 import Closet from './Closet'; // Import the Closet component
 import Saved from './Saved'; // Import the Closet component
@@ -116,6 +116,11 @@ const UserProfile = () => {
 
           await updateDoc(currentUserRef, { following: updatedFollowing});
           await updateDoc(targetUserRef, { followers: updatedFollowers});
+
+          setSelectedUserProfile(prevState => ({
+            ...prevState,
+            followers: updatedFollowers,
+          }));
           setIsFollowing(false);
         } else {
           //Follow logic
@@ -124,6 +129,11 @@ const UserProfile = () => {
           
           await updateDoc(currentUserRef, { following: updatedFollowing});
           await updateDoc(targetUserRef, { followers: updatedFollowers});
+
+          setSelectedUserProfile(prevState => ({
+            ...prevState,
+            followers: updatedFollowers,
+          }));
           setIsFollowing(true);
         }
         //Refresh the lists
@@ -169,6 +179,9 @@ const UserProfile = () => {
     const userRef = doc(db, 'users', userId);
     const docSnap = await getDoc(userRef);
     if (docSnap.exists()) {
+      const targetUserData = docSnap.data();
+      const isUserFollowing = targetUserData.followers?.includes(auth.currentUser.uid);
+      setIsFollowing(isUserFollowing);
       setSelectedUserProfile({ id: userId, ...docSnap.data()});
       setIsModalVisible(true);
     }
