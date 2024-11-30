@@ -1,76 +1,70 @@
-/*
-View: A container that supports layout with flexbox.
-Text: For displaying text.
-FlatList: For rendering a list of items efficiently.
-Image: For displaying images.
-StyleSheet: For creating styles.
-Dimensions: For getting the width and height of the screen. */
-
-import React, {useState} from 'react';
-import { View, FlatList, Image, StyleSheet, Dimensions, TouchableOpacity, Text, Modal, ScrollView, TextInput } from 'react-native';
-import pinData from '../data/PinData';
+import React, { useState, useEffect } from 'react';
+import { 
+  View, 
+  FlatList, 
+  Image, 
+  StyleSheet, 
+  Dimensions, 
+  TouchableOpacity, 
+  Text, 
+  Modal, 
+  ScrollView, 
+  TextInput, 
+  Alert 
+} from 'react-native';
+import { db, auth } from '../firebaseConfig';
+import { collection, getDocs, doc, updateDoc, arrayUnion, arrayRemove } from 'firebase/firestore';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import Feather from '@expo/vector-icons/Feather';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-
+import pinData from '../data/PinData'; 
 const screenWidth = Dimensions.get('window').width;
-const screenHeight = Dimensions.get('window').height;
+const COLUMN_WIDTH = (screenWidth - 48) / 2; // 48 accounts for container padding and gap
 
-//Temporary dummy data for other users profiles
-const otherUserProfiles = [
-  {
-    username: 'jane_doe',
-    userAvatar: 'https://picsum.photos/seed/avatar/50/50',
-  },
-  {
-    username: 'john.smith',
-    userAvatar: 'https://picsum.photos/seed/avatar/50/50',
-  },
-  {
-    username: 'BettyBoo',
-    userAvatar: 'https://picsum.photos/seed/avatar/50/50',
-  },
-  {
-    username: 'Alice._.Wonder',
-    userAvatar: 'https://picsum.photos/seed/avatar/50/50',
-  },
-  {
-    username: 'Bob_the_Builder',
-    userAvatar: 'https://picsum.photos/seed/avatar/50/50',
-  },
-  {
-    username: 'HatterMad',
-    userAvatar: 'https://picsum.photos/seed/avatar/50/50',
-  },
-  {
-    username: 'Rabbit',
-    userAvatar: 'https://picsum.photos/seed/avatar/50/50',
-  },
-  {
-    username: 'AnonPanda',
-    userAvatar: 'https://picsum.photos/seed/avatar/50/50',
-  },
-];
-
-// Function to merge pins with other users profile for testing
-const mergePinsWithUsers = () => {
-  return pinData.map((pin,index) => {
-    const user = otherUserProfiles[index % otherUserProfiles.length];
-    return {
-      ...pin,
-      username: user.username,
-      userAvatar: user.userAvatar,
-    };
-  });
-};
-
-const HomeScreen = () => {
+export default function HomeScreen() {
+  const [posts, setPosts] = useState([]);
   const [modalVisible, setModalVisible] = useState(false);
   const [selectedPin, setSelectedPin] = useState(null);
   const [comment, setComment] = useState('');
   const [comments, setComments] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [isLiked, setIsLiked] = useState(false);
 
-  const pinsWithUsers = mergePinsWithUsers(); //Combined data for use
+  const fetchPosts = async () => {
+    try {
+      setLoading(true);
+      // Fetch real posts from Firebase
+      const postsRef = collection(db, 'posts');
+      const querySnapshot = await getDocs(postsRef);
+      
+      const realPosts = querySnapshot.docs.map(doc => ({
+        id: doc.id,
+        isReal: true, // Flag to identify real posts
+        ...doc.data()
+      }));
+
+      // Combine with mock data
+      const mockPosts = pinData.map(pin => ({
+        ...pin,
+        isReal: false // Flag to identify mock posts
+      }));
+
+      // Combine both arrays and shuffle them
+      const allPosts = [...realPosts, ...mockPosts].sort(() => Math.random() - 0.5);
+      
+      console.log('Total posts:', allPosts.length);
+      setPosts(allPosts);
+
+    } catch (error) {
+      console.error('Error fetching posts:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchPosts();
+  }, []);
 
   const handlePinPress = (pin) => {
     setSelectedPin(pin);
@@ -79,6 +73,7 @@ const HomeScreen = () => {
 
   const handleCloseModal = () => {
     setModalVisible(false);
+    setSelectedPin(null);
   };
 
   const handleCommentSubmit = () => {
@@ -89,216 +84,316 @@ const HomeScreen = () => {
     }
   };
 
+  const handleLikePress = async (postId) => {
+    if (!selectedPin.isReal) return; // Only handle likes for real posts
+    
+    try {
+      const postRef = doc(db, 'posts', postId);
+      const userId = auth.currentUser?.uid;
+      
+      if (!userId) {
+        Alert.alert('Please sign in to like posts');
+        return;
+      }
+
+      await updateDoc(postRef, {
+        likes: isLiked ? 
+          arrayRemove(userId) : 
+          arrayUnion(userId)
+      });
+
+      setIsLiked(!isLiked);
+    } catch (error) {
+      console.error('Error updating like:', error);
+    }
+  };
+
   const renderPin = ({ item }) => {
-    return(
-      <TouchableOpacity onPress={() => handlePinPress(item)}>
+    const imageSource = item.isReal ? 
+      { uri: item.itemImage } : 
+      { uri: item.imageUrl };
+
+    return (
+      <TouchableOpacity 
+        onPress={() => handlePinPress(item)}
+        activeOpacity={0.9}
+      >
         <View style={styles.pinContainer}>
-          <Image source={{uri: item.imageUrl}} style={[styles.pinImage, {aspectRatio: item.aspectRatio}]} />
+          <Image 
+            source={imageSource}
+            style={[
+              styles.pinImage,
+              {
+                width: COLUMN_WIDTH,
+                height: COLUMN_WIDTH * 1.5, // Default aspect ratio of 1.5
+                // You can also make height dynamic based on image dimensions
+              }
+            ]} 
+            resizeMode="cover"
+          />
+          {item.isReal && (
+            <View style={styles.realPostBadge}>
+              <MaterialCommunityIcons name="check-circle" size={16} color="#fff" />
+              <Text style={styles.realPostText}>Real</Text>
+            </View>
+          )}
         </View>
       </TouchableOpacity>
-    ); 
+    );
   };
 
   return (
-   <View style={styles.container}>
-    <FlatList
-      data={pinsWithUsers} // use merged pins with user data
-      renderItem={renderPin}
-      keyExtractor={(item) => item.id.toString()}
-      numColumns={2}
-      columnWrapperStyle={styles.columnWrapper}
-      showsVerticalScrollIndicator={false}
-    />
-    {/* Modal for detailed pin view */}
-    <Modal visible={modalVisible} transparent={false} animationType="slide" onRequestClose={handleCloseModal}>
-      <View style={styles.modalFullScreenContainer}>
-        <TouchableOpacity style={styles.backButton} onPress={handleCloseModal}>
-          <MaterialCommunityIcons name="arrow-left" size={24} color="black" />
-        </TouchableOpacity>
+    <View style={styles.container}>
+      <FlatList
+        data={posts}
+        renderItem={renderPin}
+        keyExtractor={(item) => item.id?.toString() || item.itemId?.toString()}
+        numColumns={2}
+        columnWrapperStyle={styles.columnWrapper}
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.listContainer}
+        onRefresh={fetchPosts}
+        refreshing={loading}
+      />
 
-        <ScrollView style={styles.modalContentFullScreen}>
-          {selectedPin && (
-            <>
-              <Image source={{uri: selectedPin.imageUrl}} style={styles.fullImage} />
-              
-              {/* Engagement Metrics */}
-              <View style={styles.engagementMetrics}>
-                <View style={styles.metricsRow}>
-                  <View style={styles.metricItem}>
-                    <MaterialCommunityIcons name="heart-outline" size={20}/>
-                    <Text style={styles.metricText}>{selectedPin.likesCount}</Text>
+      <Modal 
+        visible={modalVisible} 
+        transparent={false} 
+        animationType="slide" 
+        onRequestClose={handleCloseModal}
+      >
+        <View style={styles.modalFullScreenContainer}>
+          <TouchableOpacity 
+            style={styles.closeButton} 
+            onPress={handleCloseModal}
+          >
+            <MaterialCommunityIcons 
+              name="arrow-left" 
+              size={24} 
+              color="#000"
+            />
+          </TouchableOpacity>
+
+          <ScrollView style={styles.modalContentFullScreen}>
+            {selectedPin && (
+              <>
+                <Image 
+                  source={selectedPin.isReal ? 
+                    { uri: selectedPin.itemImage } : 
+                    { uri: selectedPin.imageUrl }
+                  } 
+                  style={styles.fullImage} 
+                />
+                
+                {selectedPin.isReal ? (
+                  // Real post interactions
+                  <View style={styles.engagementMetrics}>
+                    <TouchableOpacity 
+                      style={styles.likeButton}
+                      onPress={() => handleLikePress(selectedPin.id)}
+                    >
+                      <MaterialCommunityIcons 
+                        name={isLiked ? "heart" : "heart-outline"} 
+                        size={24} 
+                        color={isLiked ? "#ff0000" : "#000"} 
+                      />
+                    </TouchableOpacity>
+                    <TouchableOpacity style={styles.commentButton}>
+                      <MaterialCommunityIcons 
+                        name="comment-outline" 
+                        size={24} 
+                        color="#000" 
+                      />
+                    </TouchableOpacity>
                   </View>
-                  <View style={styles.metricItem}>
-                    <MaterialCommunityIcons name="comment-outline" size={20}/>
-                    <Text style={styles.metricText}>{selectedPin.commentsCount}</Text>
+                ) : (
+                  // Mock post static metrics
+                  <View style={styles.engagementMetrics}>
+                    <View style={styles.mockMetric}>
+                      <MaterialCommunityIcons 
+                        name="heart-outline" 
+                        size={24} 
+                        color="#666" 
+                      />
+                      <Text style={styles.mockMetricText}>
+                        {Math.floor(Math.random() * 100)}
+                      </Text>
+                    </View>
                   </View>
-                  <TouchableOpacity style={styles.iconButton}>
-                    <Ionicons name="filter-outline" size={20} color="black"/>
-                  </TouchableOpacity>
-                  <TouchableOpacity style={styles.iconButton}>
-                    <Feather name="share" size={20} color="black" />
-                  </TouchableOpacity>
-                  <TouchableOpacity style={styles.followButton}>
-                    <Text style={styles.followButtonText}>Follow</Text>
-                  </TouchableOpacity>
+                )}
+
+                <View style={styles.profileSection}>
+                  <Image 
+                    source={{ uri: selectedPin.userAvatar }} 
+                    style={styles.profileImage} 
+                  />
+                  <Text style={styles.username}>{selectedPin.username}</Text>
                 </View>
-              </View>
-              
-              {/* Other users information */}
-              <View style={styles.profileSection}>
-                <Image source={{uri: selectedPin.userAvatar}} style={styles.profileImage} />
-                <Text style={styles.username}>{selectedPin.username}</Text>
-              </View>
-              <Text style={styles.outfitCaption}>{selectedPin.caption}</Text>
-              <Text style={styles.outfitDescription}>{selectedPin.description}</Text>
+                <Text style={styles.outfitCaption}>
+                  {selectedPin.isReal ? selectedPin.caption : selectedPin.title}
+                </Text>
+                <Text style={styles.outfitDescription}>{selectedPin.description}</Text>
 
-              {/*Comment section*/}
-              <TextInput
-                style={styles.commentInput}
-                placeholder="Leave a comment..."
-                value={comment}
-                onChangeText={setComment}
-                onSubmitEditing={handleCommentSubmit}
-              />
+                <TextInput
+                  style={styles.commentInput}
+                  placeholder="Leave a comment..."
+                  value={comment}
+                  onChangeText={setComment}
+                  onSubmitEditing={handleCommentSubmit}
+                />
 
-              <View style={styles.commentsSection}>
-                {comments.map((c,index) => (
-                  <Text key={index} style={styles.comment}>{c}</Text>
-                ))}
-              </View>
-            </>
-          )}
-        </ScrollView>
-      </View>
-    </Modal>
-   </View>
+                <View style={styles.commentsSection}>
+                  {comments.map((c, index) => (
+                    <Text key={index} style={styles.comment}>{c}</Text>
+                  ))}
+                </View>
+              </>
+            )}
+          </ScrollView>
+        </View>
+      </Modal>
+    </View>
   );
-};
+}
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    padding: 20,
     backgroundColor: '#fff',
   },
+  listContainer: {
+    padding: 16,
+  },
+  columnWrapper: {
+    justifyContent: 'space-between',
+    marginBottom: 16,
+  },
   pinContainer: {
-    width: (screenWidth / 2) - 30,
-    marginBottom: 10, 
-    marginHorizontal: 5,
-    backgroundColor: '#f3f3f3',
-    borderRadius: 10,
+    borderRadius: 16,
     overflow: 'hidden',
+    backgroundColor: '#f0f0f0',
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
   },
   pinImage: {
-    width: '100%', 
-    height: undefined,
-    resizeMode: 'cover',
-  }, 
-  columnWrapper: {
-    justifyContent: 'space-between', 
+    backgroundColor: '#e1e1e1', // Placeholder color while loading
   },
   modalFullScreenContainer: {
     flex: 1,
-    justifyContent: 'flex-start',
-    alignItems: 'center',
     backgroundColor: '#fff',
   },
-  modalContentFullScreen: {
-    width: '100%',
-    padding: 20,
-  },
-  backButton: {
+  closeButton: {
     position: 'absolute',
-    top: 80,
-    left: 25,
-    backgroundColor: 'white',
-    padding: 10,
-    borderRadius: 5,
-    zIndex: 10,
+    top: 40,
+    left: 16,
+    zIndex: 1,
+    padding: 8,
+  },
+  modalContentFullScreen: {
+    flex: 1,
+    marginTop: 60,
   },
   fullImage: {
     width: '100%',
-    height: screenHeight * 0.6,
+    height: 400,
     resizeMode: 'cover',
-    borderRadius: 10,
-    marginTop: 55,
+  },
+  engagementMetrics: {
+    flexDirection: 'row',
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#eee',
+  },
+  likeButton: {
+    marginRight: 16,
+  },
+  commentButton: {
+    marginRight: 16,
+  },
+  mockMetric: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  mockMetricText: {
+    marginLeft: 4,
+    color: '#666',
   },
   profileSection: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginVertical: 10,
+    marginBottom: 16,
   },
   profileImage: {
     width: 40,
     height: 40,
     borderRadius: 20,
+    marginRight: 8,
   },
   username: {
-    paddingLeft: 10,
-    fontWeight: 'bold',
     fontSize: 16,
-  },
-  followButton: {
-    backgroundColor: '#333',
-    padding: 5,
-    borderRadius: 5,
-    marginLeft: 15,
-  },
-  followButtonText: {
-    color: '#fff',
-    fontSize: 14,
+    fontWeight: '500',
   },
   outfitCaption: {
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: 'bold',
-    marginVertical: 5,
-    textAlign: 'left',
+    padding: 16,
   },
   outfitDescription: {
     fontSize: 14,
-    color: 'grey',
-    marginBottom: 10,
-    textAlign: 'left',
+    color: '#666',
+    paddingHorizontal: 16,
   },
   commentInput: {
-    height: 40,
-    borderColor: '#ccc',
+    height: 100,
+    padding: 16,
     borderWidth: 1,
-    borderRadius: 5,
-    paddingHorizontal: 10,
-    marginBottom: 10,
+    borderColor: '#ccc',
+    borderRadius: 4,
+    marginBottom: 16,
   },
-  commentSection: {
-    maxHeight: 200,
-    marginBottom: 10,
+  commentsSection: {
+    paddingHorizontal: 16,
   },
   comment: {
-    marginVertical: 5,
-    padding: 5,
-    backgroundColor: '#f0f0f0',
-    borderRadius: 5,
-  },
-  engagementMetrics: {
-    marginVertical: 5,
-    alignItems: 'flex-start',
-  },
-  metricsRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flexWrap: 'wrap',
-  },
-  metricItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginHorizontal: 5,
-  },
-  metricText: {
     fontSize: 14,
-    marginLeft: 2,
+    color: '#666',
+    marginBottom: 4,
   },
-  iconButton: {
-    marginHorizontal: 5,
+  realPostBadge: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    backgroundColor: 'rgba(0, 150, 136, 0.8)',
+    borderRadius: 12,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  realPostText: {
+    color: '#fff',
+    fontSize: 12,
+    marginLeft: 4,
+    fontWeight: '500',
+  },
+  closeButton: {
+    position: 'absolute',
+    top: 40,
+    left: 16,
+    zIndex: 10,
+    backgroundColor: '#fff',
+    borderRadius: 20,
+    padding: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
   },
 });
-
-export default HomeScreen;
