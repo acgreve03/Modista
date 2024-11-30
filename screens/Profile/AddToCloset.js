@@ -4,7 +4,7 @@ import { doc, collection, addDoc } from 'firebase/firestore';
 import { db, storage } from '../../firebaseConfig';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import * as ImagePicker from 'expo-image-picker';
-import { analyzeImage } from '../../data/imageAnalysisHelpers'; // Import helper functions
+import { analyzeImage } from '../../data/Helpers.js'; // Import helper functions
 import Ionicons from 'react-native-vector-icons/Ionicons'; 
 import { auth } from '../../firebaseConfig';
 import { onAuthStateChanged } from 'firebase/auth';
