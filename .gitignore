@@ -33,3 +33,8 @@ yarn-error.*
 
 # typescript
 *.tsbuildinfo
+
+# duplicate files
+screens/OutfitGenerateDisplay 2.js
+screens/PostDetailScreen 2.js
+services/WeatherService 2.js
