@@ -38,25 +38,24 @@ const NotificationItem = ({ notification, onFollowBack, currentUserFollowing }) 
 const NotificationScreen = () => {
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [currentUserFollowing, setCurrentUserFollowing] = useState([]);
 
-  useEffect(() => {
+  const fetchCurrentUserFollowing = async () => {
+    try {
+      const userRef = doc(db, 'users', auth.currentUser.uid);
+      const userSnap = await getDoc(userRef);
+      if (userSnap.exists()) {
+        setCurrentUserFollowing(userSnap.data().following || []);
+      }
+    } catch (error) {
+      console.error('Error fetching following list:', error);
+    }
+  };
+
+  const fetchNotifications = () => {
     if (!auth.currentUser) return;
 
-    // Fetch current user's following list
-    const fetchCurrentUserFollowing = async () => {
-      try {
-        const userRef = doc(db, 'users', auth.currentUser.uid);
-        const userSnap = await getDoc(userRef);
-        if (userSnap.exists()) {
-          setCurrentUserFollowing(userSnap.data().following || []);
-        }
-      } catch (error) {
-        console.error('Error fetching following list:', error);
-      }
-    };
-
-    // Fetch notifications
     const notificationsRef = collection(db, 'notifications');
     const q = query(
       notificationsRef,
@@ -64,7 +63,7 @@ const NotificationScreen = () => {
       orderBy('createdAt', 'desc')
     );
 
-    const unsubscribe = onSnapshot(q, (snapshot) => {
+    return onSnapshot(q, (snapshot) => {
       const notificationsList = snapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data()
@@ -72,10 +71,19 @@ const NotificationScreen = () => {
       setNotifications(notificationsList);
       setLoading(false);
     });
+  };
 
+  useEffect(() => {
+    const unsubscribe = fetchNotifications();
     fetchCurrentUserFollowing();
-    return () => unsubscribe();
+    return () => unsubscribe && unsubscribe();
   }, []);
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await fetchCurrentUserFollowing();
+    setRefreshing(false);
+  };
 
   const handleFollowBack = async (notification) => {
     try {
@@ -172,6 +180,8 @@ const NotificationScreen = () => {
           )}
           keyExtractor={item => item.id.toString()}
           showsVerticalScrollIndicator={false}
+          refreshing={refreshing}
+          onRefresh={onRefresh}
         />
       )}
     </View>
