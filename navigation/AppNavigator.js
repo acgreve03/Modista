@@ -21,6 +21,7 @@ import PostDetailsScreen from '../screens/PostDetailScreen';
 import Outfits from '../screens/Profile/Outfits';
 import ProfileEdit from '../screens/Profile/ProfileEdit';
 import OutfitGeneration from '../screens/OutfitGenerateDisplay';
+import SavedPosts from '../screens/Profile/SavedPosts';
 
 // Create the Tab Navigator for the Main Page
 const Tab = createBottomTabNavigator();
@@ -133,6 +134,23 @@ function App() {
         <Stack.Screen name="OutfitGeneration" component={OutfitGeneration} />
         <Stack.Screen name="Main" component={MainTabs}>
         </Stack.Screen>
+        <Stack.Screen 
+            name="PostDetailsScreen" 
+            component={PostDetailsScreen}
+            options={{
+                headerShown: true,
+                title: 'Post Details',
+                headerBackTitle: 'Back'
+            }}
+        />
+        <Stack.Screen 
+            name="SavedPosts" 
+            component={SavedPosts}
+            options={{
+                title: 'Saved Posts',
+                headerShown: true
+            }}
+        />
       </Stack.Navigator>
     </NavigationContainer>
   );
