@@ -36,7 +36,9 @@ export default function ProfileCreation({ navigation, route }) {
             lastName: data.lastName,
             userName: data.userName,
             bio: data.bio,
-            profilePictureUrl: profilePictureUrl //Url which leads to the actual image location
+            profilePictureUrl: profilePictureUrl, //Url which leads to the actual image location
+            followers: [],
+            following: [],
             });
 
             //Uploading the actual image to firestore
