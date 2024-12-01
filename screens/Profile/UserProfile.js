@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, Image, TouchableOpacity, ActivityIndicator, Scr
 import Outfits from './Outfits'; // Import the OutfitsGrid component
 import Closet from './Closet'; // Import the Closet component
 import Saved from './Saved'; // Import the Closet component
-import { doc, getDoc, onSnapshot, updateDoc } from 'firebase/firestore';
+import { doc, getDoc, onSnapshot, updateDoc, collection, addDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '../../firebaseConfig';
 import { auth } from '../../firebaseConfig';
 
@@ -109,39 +109,46 @@ const UserProfile = () => {
         const currentFollowing = currentUserData.following || [];
         const targetFollowers = targetUserData.followers || [];
 
-        //Unfollow logic
         if (currentFollowing.includes(userId)) {
+          // Unfollow logic
           const updatedFollowing = currentFollowing.filter(id => id !== userId);
           const updatedFollowers = targetFollowers.filter(id => id !== auth.currentUser.uid);
-
+          
           await updateDoc(currentUserRef, { following: updatedFollowing});
           await updateDoc(targetUserRef, { followers: updatedFollowers});
-
+          
           setSelectedUserProfile(prevState => ({
             ...prevState,
             followers: updatedFollowers,
           }));
           setIsFollowing(false);
         } else {
-          //Follow logic
+          // Follow logic
           const updatedFollowing = [...currentFollowing, userId];
           const updatedFollowers = [...targetFollowers, auth.currentUser.uid];
           
           await updateDoc(currentUserRef, { following: updatedFollowing});
           await updateDoc(targetUserRef, { followers: updatedFollowers});
-
+          
+          // Create notification when following
+          await addDoc(collection(db, 'notifications'), {
+            type: 'follow',
+            senderId: auth.currentUser.uid,
+            recipientId: userId,
+            senderName: currentUserData.userName || auth.currentUser.displayName || 'User',
+            senderProfilePic: currentUserData.profilePictureUrl || auth.currentUser.photoURL || 'https://via.placeholder.com/40',
+            createdAt: serverTimestamp()
+          });
+          
           setSelectedUserProfile(prevState => ({
             ...prevState,
             followers: updatedFollowers,
           }));
           setIsFollowing(true);
         }
-        //Refresh the lists
-        await fetchFollowers();
-        await fetchFollowing();
       }
     } catch (error) {
-      console.error("Error updating follow state: ", error);
+      console.error('Error toggling follow:', error);
     }
   };
 
