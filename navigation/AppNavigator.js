@@ -133,6 +133,15 @@ function App() {
         <Stack.Screen name="OutfitGeneration" component={OutfitGeneration} />
         <Stack.Screen name="Main" component={MainTabs}>
         </Stack.Screen>
+        <Stack.Screen 
+            name="PostDetailsScreen" 
+            component={PostDetailsScreen}
+            options={{
+                headerShown: true,
+                title: 'Post Details',
+                headerBackTitle: 'Back'
+            }}
+        />
       </Stack.Navigator>
     </NavigationContainer>
   );
