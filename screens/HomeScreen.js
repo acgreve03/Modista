@@ -11,6 +11,8 @@ import {
   Modal, 
   ScrollView,
   TextInput,
+  KeyboardAvoidingView,
+  Platform
 } from 'react-native';
 import { db, auth } from '../firebaseConfig';
 import { 
@@ -20,7 +22,8 @@ import {
   arrayUnion, 
   arrayRemove,
   getDocs,
-  serverTimestamp
+  serverTimestamp,
+  getDoc
 } from 'firebase/firestore';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 
@@ -89,25 +92,52 @@ export default function HomeScreen() {
       return;
     }
 
-    if (!newComment.trim()) return;
+    if (!newComment.trim()) {
+      return;
+    }
 
     try {
       const userId = auth.currentUser.uid;
-      const postRef = doc(db, 'posts', postId);
-      
+      const userRef = doc(db, 'users', userId);
+      const userDoc = await getDoc(userRef);
+      const userData = userDoc.data();
+
       const comment = {
-        userId,
+        userId: userId,
         text: newComment.trim(),
         timestamp: new Date().toISOString(),
-        username: auth.currentUser.displayName || 'User'
+        username: userData.userName || 'User',
+        userProfilePic: userData.profilePictureUrl || null,
+        firstName: userData.firstName,
+        lastName: userData.lastName
       };
 
+      const postRef = doc(db, 'posts', postId);
       await updateDoc(postRef, {
         comments: arrayUnion(comment)
       });
 
+      // Update local state
+      setPosts(currentPosts => 
+        currentPosts.map(post => {
+          if (post.id === postId) {
+            return {
+              ...post,
+              comments: [...(post.comments || []), comment]
+            };
+          }
+          return post;
+        })
+      );
+
+      if (selectedPin?.id === postId) {
+        setSelectedPin(prev => ({
+          ...prev,
+          comments: [...(prev.comments || []), comment]
+        }));
+      }
+
       setNewComment('');
-      fetchPosts();
 
     } catch (error) {
       console.error('Error adding comment:', error);
@@ -173,8 +203,9 @@ export default function HomeScreen() {
       const postsData = querySnapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data(),
+        comments: doc.data().comments || [],
         isLiked: doc.data().likes?.includes(auth.currentUser?.uid),
-        isSaved: doc.data().saves?.includes(auth.currentUser?.uid),
+        isSaved: doc.data().saves?.includes(auth.currentUser?.uid)
       }));
       
       setPosts(postsData);
@@ -220,6 +251,17 @@ export default function HomeScreen() {
     </TouchableOpacity>
   );
 
+  const initializeCommentsArray = async (postId) => {
+    try {
+      const postRef = doc(db, 'posts', postId);
+      await updateDoc(postRef, {
+        comments: []
+      });
+    } catch (error) {
+      console.error('Error initializing comments:', error);
+    }
+  };
+
   return (
     <View style={styles.container}>
       <FlatList
@@ -239,7 +281,11 @@ export default function HomeScreen() {
         animationType="slide" 
         onRequestClose={handleCloseModal}
       >
-        <View style={styles.modalContainer}>
+        <KeyboardAvoidingView 
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
+          style={styles.modalContainer}
+          keyboardVerticalOffset={Platform.OS === "ios" ? 100 : 0}
+        >
           <TouchableOpacity 
             style={styles.closeButton} 
             onPress={handleCloseModal}
@@ -252,51 +298,80 @@ export default function HomeScreen() {
           </TouchableOpacity>
 
           {selectedPin && (
-            <ScrollView style={styles.modalContent}>
-              <Image 
-                source={{ uri: selectedPin.itemImage }}
-                style={styles.modalImage} 
-              />
-              
-              <View style={styles.interactionBar}>
-                <TouchableOpacity 
-                  onPress={() => handleLike(selectedPin.id)}
-                  style={styles.interactionButton}
-                >
-                  <MaterialCommunityIcons 
-                    name={selectedPin.isLiked ? "heart" : "heart-outline"} 
-                    size={24} 
-                    color={selectedPin.isLiked ? "#ff0000" : "#000"} 
-                  />
-                  <Text style={styles.likeCount}>
-                    {selectedPin.likes?.length || 0}
+            <View style={styles.modalContentWrapper}>
+              <ScrollView style={styles.modalContent}>
+                <Image 
+                  source={{ uri: selectedPin.itemImage }}
+                  style={styles.modalImage} 
+                />
+                
+                <View style={styles.interactionBar}>
+                  <TouchableOpacity 
+                    onPress={() => handleLike(selectedPin.id)}
+                    style={styles.interactionButton}
+                  >
+                    <MaterialCommunityIcons 
+                      name={selectedPin.isLiked ? "heart" : "heart-outline"} 
+                      size={24} 
+                      color={selectedPin.isLiked ? "#ff0000" : "#000"} 
+                    />
+                    <Text style={styles.likeCount}>
+                      {selectedPin.likes?.length || 0}
+                    </Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity 
+                    onPress={() => handleSave(selectedPin.id)}
+                    style={styles.interactionButton}
+                  >
+                    <MaterialCommunityIcons 
+                      name={selectedPin.isSaved ? "bookmark" : "bookmark-outline"} 
+                      size={24} 
+                      color={selectedPin.isSaved ? "#000" : "#000"} 
+                    />
+                  </TouchableOpacity>
+                </View>
+
+                <Text style={styles.caption}>{selectedPin.caption}</Text>
+                <Text style={styles.timestamp}>
+                  {new Date(selectedPin.timestamp).toLocaleDateString()}
+                </Text>
+
+                <View style={styles.commentsSection}>
+                  <Text style={styles.commentsHeader}>
+                    Comments ({selectedPin.comments?.length || 0})
                   </Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity 
-                  onPress={() => handleSave(selectedPin.id)}
-                  style={styles.interactionButton}
-                >
-                  <MaterialCommunityIcons 
-                    name={selectedPin.isSaved ? "bookmark" : "bookmark-outline"} 
-                    size={24} 
-                    color={selectedPin.isSaved ? "#000" : "#000"} 
-                  />
-                </TouchableOpacity>
-              </View>
-
-              <Text style={styles.caption}>{selectedPin.caption}</Text>
-              <Text style={styles.timestamp}>
-                {new Date(selectedPin.timestamp).toLocaleDateString()}
-              </Text>
-
-              <View style={styles.commentsSection}>
-                {selectedPin.comments?.map((comment, index) => (
-                  <View key={index} style={styles.commentItem}>
-                    <Text style={styles.commentText}>{comment.text}</Text>
-                  </View>
-                ))}
-              </View>
+                  {selectedPin.comments?.map((comment, index) => (
+                    <View key={index} style={styles.commentItem}>
+                      <View style={styles.commentHeader}>
+                        {comment.userProfilePic ? (
+                          <Image 
+                            source={{ uri: comment.userProfilePic }} 
+                            style={styles.commentUserPic}
+                          />
+                        ) : (
+                          <View style={styles.commentUserPlaceholder}>
+                            <MaterialCommunityIcons 
+                              name="account" 
+                              size={20} 
+                              color="#666" 
+                            />
+                          </View>
+                        )}
+                        <Text style={styles.commentUsername}>
+                          {comment.firstName} {comment.lastName}
+                        </Text>
+                      </View>
+                      <Text style={styles.commentText}>
+                        {comment.text}
+                      </Text>
+                      <Text style={styles.commentTimestamp}>
+                        {new Date(comment.timestamp).toLocaleDateString()}
+                      </Text>
+                    </View>
+                  ))}
+                </View>
+              </ScrollView>
 
               <View style={styles.commentInputContainer}>
                 <TextInput
@@ -304,18 +379,27 @@ export default function HomeScreen() {
                   placeholder="Add a comment..."
                   value={newComment}
                   onChangeText={setNewComment}
-                  onSubmitEditing={() => handleComment(selectedPin.id)}
+                  multiline
+                  maxLength={500}
                 />
                 <TouchableOpacity 
+                  style={[
+                    styles.commentButton,
+                    !newComment.trim() && styles.commentButtonDisabled
+                  ]}
                   onPress={() => handleComment(selectedPin.id)}
-                  style={styles.commentButton}
+                  disabled={!newComment.trim()}
                 >
-                  <MaterialCommunityIcons name="send" size={24} color="#007AFF" />
+                  <MaterialCommunityIcons 
+                    name="send" 
+                    size={24} 
+                    color={newComment.trim() ? "#007AFF" : "#999"} 
+                  />
                 </TouchableOpacity>
               </View>
-            </ScrollView>
+            </View>
           )}
-        </View>
+        </KeyboardAvoidingView>
       </Modal>
     </View>
   );
@@ -367,6 +451,9 @@ const styles = StyleSheet.create({
     shadowRadius: 3.84,
     elevation: 5,
   },
+  modalContentWrapper: {
+    flex: 1,
+  },
   modalContent: {
     flex: 1,
   },
@@ -389,17 +476,60 @@ const styles = StyleSheet.create({
   commentsSection: {
     padding: 16,
   },
-  commentItem: {
+  commentsHeader: {
+    fontSize: 16,
+    fontWeight: 'bold',
     marginBottom: 12,
   },
+  commentItem: {
+    marginBottom: 16,
+    backgroundColor: '#f8f8f8',
+    padding: 12,
+    borderRadius: 8,
+  },
+  commentHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  commentUserPic: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    marginRight: 8,
+  },
+  commentUserPlaceholder: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: '#eee',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 8,
+  },
+  commentUsername: {
+    fontWeight: 'bold',
+    fontSize: 14,
+    color: '#000',
+  },
   commentText: {
+    fontSize: 14,
+    lineHeight: 20,
     color: '#333',
+    marginLeft: 32,
+  },
+  commentTimestamp: {
+    fontSize: 12,
+    color: '#666',
+    marginTop: 4,
+    marginLeft: 32,
   },
   commentInputContainer: {
     flexDirection: 'row',
     padding: 16,
     borderTopWidth: 1,
     borderTopColor: '#eee',
+    backgroundColor: '#fff',
   },
   commentInput: {
     flex: 1,
@@ -409,9 +539,16 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 8,
     marginRight: 8,
+    maxHeight: 100,
+    backgroundColor: '#f8f8f8',
   },
   commentButton: {
     justifyContent: 'center',
+    alignItems: 'center',
+    width: 40,
+  },
+  commentButtonDisabled: {
+    opacity: 0.5,
   },
   interactionBar: {
     flexDirection: 'row',
@@ -427,5 +564,8 @@ const styles = StyleSheet.create({
   likeCount: {
     marginLeft: 8,
     fontSize: 16,
+  },
+  commentSpacing: {
+    height: 60, // Add extra space at bottom of comments for keyboard
   },
 });
