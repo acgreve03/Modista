@@ -4,9 +4,14 @@ import { doc, collection, addDoc } from 'firebase/firestore';
 import { db, storage } from '../../firebaseConfig';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import * as ImagePicker from 'expo-image-picker';
+import { analyzeImage } from '../../data/Helpers.js'; // Import helper functions
 import Ionicons from 'react-native-vector-icons/Ionicons'; 
 import { auth } from '../../firebaseConfig';
 import { onAuthStateChanged } from 'firebase/auth';
+
+const GOOGLE_API_KEY = "AIzaSyAGRWVBWp-pJH9KD4XB2yedmv-2VQafbV4"
+const CHATGPT_API_KEY = "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"
+const REMOVE_BG_API_KEY = "q9wrwRUWDZb8D9jfKcakubeY"
 
 
 export default function AddToCloset({navigation}) {
@@ -16,203 +21,195 @@ export default function AddToCloset({navigation}) {
     const [loading, setLoading] = useState(false);
     const [user, setUser] = useState(null);
     const [color, setColor] = useState('');
+    const [category, setCategory] = useState('');
     const [subcategory, setSubcategory] = useState('');
     const [occasion, setOccasion] = useState('');
     const [season, setSeason] = useState('');
-  
-  
-    useEffect(() => {
 
-        const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
-            if (currentUser) {
-              setUser(currentUser);
-            } else {
-              console.log('No user logged in');
-              Alert.alert('User not authenticated');
-            }
-          });
-          return () => unsubscribe();
-      
-    }, []);
-  
-    
-    const onSubmit = async (data) => {
-
-        if (!user) {
-            Alert.alert('User not authenticated');
-            return;
-          }
-      try {
-          // Create a reference to the user's document in Firestore and make collection
-          const userRef = doc(db, 'users', user.uid);
-          const closetRef = collection(userRef, 'closet');
-
-          // Add the item data to the document
-              setLoading(true);
-              await addDoc(closetRef, {
-              color,
-              subcategory,
-              occasion,
-              season,  
-              closetItemUrl: closetItemUrl //Url which leads to the actual image location
-
-              });
-  
-              //Uploading the actual image to firestore
-              if (closetItemUrl) {
-                  await uploadImage(closetItemUrl);
-              }
-              setLoading(false);
-                // Navigate to the profile screen after successfully adding to closet
-              navigation.navigate('Profile');
-  
-      } catch (error) {
-        console.error('Error adding to closet:', error);
-      }
-    };
-  
-    if (loading) {
-      return (
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="purple" />
-          <Text>Adding Item to Closet...</Text>
-        </View>
-      );
+useEffect(() => {
+  const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+    if (currentUser) {
+      setUser(currentUser);
+    } else {
+      console.log('No user logged in');
+      Alert.alert('User not authenticated');
     }
-  
-  
-    const pickImageFromGallery = async () => {
-      try {
-          setClosetItemUrl(null);
-          const result = await ImagePicker.launchImageLibraryAsync({
-          mediaTypes: ImagePicker.MediaTypeOptions.Images,
-          allowsEditing: true,
-          aspect: [4, 3],
-          quality: 1,
+  });
+  return () => unsubscribe();
+}, []);
+
+const handleAnalyzeImage = async () => {
+  if (!closetItemUrl) {
+    Alert.alert('No image selected');
+    return;
+  }
+
+  try {
+    setLoading(true);
+    const { clothingCategories, detectedColorName } = await analyzeImage(
+      closetItemUrl,
+      GOOGLE_API_KEY,
+      CHATGPT_API_KEY
+    );
+
+    const { clothingType, clothingSubType, occasion, season } = clothingCategories;
+
+    setCategory(clothingType);
+    setSubcategory(clothingSubType);
+    setColor(detectedColorName);
+    setOccasion(occasion);
+    setSeason(season);
+
+
+    setLoading(false);
+  } catch (error) {
+    setLoading(false);
+    Alert.alert('Error analyzing image. Please try again.');
+  }
+};
+
+const onSubmit = async (data) => {
+
+  if (!user) {
+      Alert.alert('User not authenticated');
+      return;
+    }
+try {
+    // Create a reference to the user's document in Firestore and make collection
+    const userRef = doc(db, 'users', user.uid);
+    const closetRef = collection(userRef, 'closet');
+
+    // Add the item data to the document
+        setLoading(true);
+        await addDoc(closetRef, {
+        color,
+        subcategory,
+        occasion,
+        season,  
+        closetItemUrl: closetItemUrl //Url which leads to the actual image location
+
         });
-  
-        if (!result.canceled) {
-          const { uri } = result.assets[0];
-          setClosetItemUrl(uri);
+
+        //Uploading the actual image to firestore
+        if (closetItemUrl) {
+            await uploadImage(closetItemUrl);
         }
-      } catch (error) {
-        console.error('Error picking image:', error);
-        alert('Error picking image. Try again');
-      }
-    };
-  
-    const pickImageFromCamera = async () => {
-      try {
-          setClosetItemUrl(null);
-          const result = await ImagePicker.launchCameraAsync({
-          mediaTypes: ImagePicker.MediaTypeOptions.Images,
-          allowsEditing: true,
-          aspect: [4, 3],
-          quality: 1,
-        });
-  
-        if (!result.canceled) {
-          const { uri } = result.assets[0];
-          setClosetItemUrl(uri);
-        }
-      } catch (error) {
-        console.error('Error using camera:', error);
-      }
-    };
-  
-    const uploadImage = async (uri) => {
-      try {
-          console.log('Image URI:', uri);
-      
-          // Convert image URI to a Blob which can be uploaded
-          const response = await fetch(uri);
-          const blob = await response.blob();
-          console.log('Blob created:', blob);
-      
-          // Reference to Firebase storage
-          const reference = ref(storage, 'closet/' + new Date().getTime());
-      
-          // Upload the blob to storage
-          await uploadBytes(reference, blob);
-      
-          // Get the download URL of the uploaded image
-          const imageUrl = await getDownloadURL(reference);
-          console.log('Image uploaded successfully:', imageUrl);
-      
-          return imageUrl;
-        } catch (error) {
-          console.error("Error uploading image:", error);
-          throw error;
-        }
-    };
-  
-    // Requesting camera and camera roll access
-    const requestPermissions = async () => {
-      const { status: cameraStatus } = await ImagePicker.requestCameraPermissionsAsync();
-      const { status: galleryStatus } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-      
-      if (cameraStatus !== 'granted' || galleryStatus !== 'granted') {
-        alert('Permission to access camera or gallery was denied');
-      }
-    };
-  
-  
+        setLoading(false);
+          // Navigate to the profile screen after successfully adding to closet
+        navigation.navigate('Profile');
+
+} catch (error) {
+  console.error('Error adding to closet:', error);
+}
+};
+
+if (loading) {
+return (
+  <View style={styles.loadingContainer}>
+    <ActivityIndicator size="large" color="purple" />
+    <Text>Adding Item to Closet...</Text>
+  </View>
+);
+}
+
+const pickImageFromGallery = async () => {
+  try {
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: [4, 3],
+      quality: 1,
+    });
+
+    if (!result.canceled) {
+      const { uri } = result.assets[0];
+      setClosetItemUrl(uri);
+      await handleAnalyzeImage(); // Analyze the image immediately after selection
+    }
+  } catch (error) {
+    console.error('Error picking image:', error);
+    alert('Error picking image. Try again');
+  }
+};
+
+const pickImageFromCamera = async () => {
+  try {
+      setClosetItemUrl(null);
+      const result = await ImagePicker.launchCameraAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: [4, 3],
+      quality: 1,
+    });
+
+    if (!result.canceled) {
+      const { uri } = result.assets[0];
+      setClosetItemUrl(uri);
+    }
+  } catch (error) {
+    console.error('Error using camera:', error);
+  }
+};
+
     return (
       <View style={styles.container}>
-  
-  
-        <Text style={styles.title}>Add to closet</Text>
-
-        <TouchableOpacity style = {styles.button2} onPress={() => { pickImageFromCamera() }} >
-          <Ionicons name="camera" size='40' color={'purple'}></Ionicons>
+        <Text style={styles.title}>Add to Closet</Text>
+    
+        {/* Button to pick an image from the gallery */}
+        <TouchableOpacity style={styles.button2} onPress={pickImageFromCamera}>
+          <Ionicons name="camera" size={40} color={'purple'} />
         </TouchableOpacity>
-
-        <TouchableOpacity style = {styles.button3} onPress={() => { pickImageFromGallery() }} >
-          <Ionicons name="image" size='40' color={'purple'}></Ionicons>
+    
+        {/* Button to pick an image from the camera */}
+        <TouchableOpacity style={styles.button3} onPress={pickImageFromGallery}>
+          <Ionicons name="image" size={40} color={'purple'} />
         </TouchableOpacity>
-
-
+    
+        {/* Button to analyze the image */}
+        <TouchableOpacity
+          style={styles.analyzeButton}
+          onPress={handleAnalyzeImage} // Call analyze function
+        >
+          <Text style={styles.analyzeButtonText}>Analyze Image</Text>
+        </TouchableOpacity>
+    
+        {/* Display input fields for additional user input */}
         <TextInput
-            style={{
-                position: 'relative',
-                top: 180
-            }}
-            placeholder="color"
-            value={color}
-            onChangeText={setColor}
+          style={{ position: 'relative', top: 60 }}
+          placeholder="Color"
+          value={color}
+          onChangeText={setColor}
         />
         <TextInput
-            style={{
-                position: 'relative',
-                top: 180
-            }}
-            placeholder="subcategory"
-            value={subcategory}
-            onChangeText={setSubcategory}
+          style={{ position: 'relative', top: 60 }}
+          placeholder="Category"
+          value={category}
+          onChangeText={setCategory}
         />
         <TextInput
-            style={{
-                position: 'relative',
-                top: 180
-            }}
-            placeholder="occasion"
-            value={occasion}
-            onChangeText={setOccasion}
-            multiline
+          style={{ position: 'relative', top: 60 }}
+          placeholder="Subcategory"
+          value={subcategory}
+          onChangeText={setSubcategory}
         />
         <TextInput
-            style={{
-                position: 'relative',
-                top: 180
-            }}
-            placeholder="season"
-            value={season}
-            onChangeText={setSeason}
-            multiline
+          style={{ position: 'relative', top: 60 }}
+          placeholder="Occasion"
+          value={occasion}
+          onChangeText={setOccasion}
+          multiline
         />
-
+        <TextInput
+          style={{ position: 'relative', top: 60 }}
+          placeholder="Season"
+          value={season}
+          onChangeText={setSeason}
+          multiline
+        />
+    
+        {/* Display selected image */}
         <View
-        style={{
+          style={{
             borderRadius: 50,
             borderWidth: 1,
             borderColor: 'gray',
@@ -224,31 +221,36 @@ export default function AddToCloset({navigation}) {
             overflow: 'hidden',
             alignSelf: 'center',
             top: 450,
-            position: 'absolute'
-        }}
-      >
-        {closetItemUrl ? (
+            position: 'absolute',
+          }}
+        >
+          {closetItemUrl ? (
             <Image
-                source={{ uri: closetItemUrl }}
-                style={{ width: '100%', height: '100%', alignSelf: 'center' }}
-                resizeMode="cover" 
+              source={{ uri: closetItemUrl }}
+              style={{ width: '100%', height: '100%', alignSelf: 'center' }}
+              resizeMode="cover"
             />
-        ) : (
+          ) : (
             <Text style={{ textAlign: 'center', fontSize: 10 }}>Nice Choice</Text>
-        )}
-      </View>
-  
-  
-        <TouchableOpacity style={[styles.button, buttonPressed ? styles.buttonPressed : styles.button]} 
-            onPressIn={() => setButtonPressed(true)}
-            onPressOut={() => setButtonPressed(false)} 
-            onPress={(onSubmit)}
-            activeOpacity={1}>
-            <Text style={buttonPressed ? styles.buttonTextPressed : styles.buttonText}>Add</Text>
+          )}
+        </View>
+    
+        {/* Button to submit the data */}
+        <TouchableOpacity
+          style={[styles.button, buttonPressed ? styles.buttonPressed : styles.button]}
+          onPressIn={() => setButtonPressed(true)}
+          onPressOut={() => setButtonPressed(false)}
+          onPress={onSubmit} // Call submission function (optional)
+          activeOpacity={1}
+        >
+          <Text style={buttonPressed ? styles.buttonTextPressed : styles.buttonText}>Add</Text>
         </TouchableOpacity>
       </View>
     );
+
+
   }
+    
   
   const styles = StyleSheet.create({
       container: {
@@ -321,6 +323,26 @@ export default function AddToCloset({navigation}) {
           justifyContent: 'center',
           alignItems: 'center',
       },
+
+ analyzeButton: {
+    borderWidth: 1,
+    borderColor: "blue",
+    backgroundColor: "transparent",
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    alignItems: "center",
+    marginTop: 90, // Add this to push the button down
+    marginVertical: 10,
+    alignSelf: "center",
+    width: "95%",
+  },
+  analyzeButtonText: {
+    color: "blue",
+    fontSize: 15,
+    fontWeight: "bold",
+    fontFamily: "Helvetica",
+  },
+
       button2: {
         borderRadius: 20,
         borderWidth: 1,
