@@ -1,13 +1,23 @@
 import React, { useState, useEffect } from 'react';
+<<<<<<< HEAD
 import { View, Text, StyleSheet, Image, TouchableOpacity, ActivityIndicator, ScrollView, Modal, FlatList } from 'react-native';
 import Outfits from './Outfits'; // Import the OutfitsGrid component
 import Closet from './Closet'; // Import the Closet component
 import Saved from './Saved'; // Import the Closet component
 import { doc, getDoc, onSnapshot, updateDoc, collection, addDoc, serverTimestamp } from 'firebase/firestore';
+=======
+import { View, Text, StyleSheet, Image, TouchableOpacity, ActivityIndicator, ScrollView, Modal, Button, FlatList } from 'react-native';
+import Outfits from './Outfits';
+import Closet from './Closet';
+import Saved from './Saved';
+import { doc, getDoc } from 'firebase/firestore';
+>>>>>>> main
 import { db } from '../../firebaseConfig';
 import { auth } from '../../firebaseConfig';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { useFocusEffect } from '@react-navigation/native';
 
-const UserProfile = () => {
+const UserProfile = ({navigation}) => {
   const [userProfile, setUserProfile] = useState(null);
   const [loading, setLoading] = useState(true);
   const [selectedTab, setSelectedTab] = useState('Outfits');
@@ -18,29 +28,29 @@ const UserProfile = () => {
   const [modalType, setModalType] = useState('followers');
   const [isFollowing, setIsFollowing] = useState(false);
 
-  //Fetching current user's data
-  useEffect(() => {
-    const fetchUserProfile = async () => {
-      const user = auth.currentUser; // Get the current logged-in user
-      if (user) {
-        const userRef = doc(db, 'users', user.uid); // Reference to the user's document
-        const docSnap = await getDoc(userRef); // Get the document snapshot
-
-        if (docSnap.exists()) {
-          setUserProfile(docSnap.data()); // Set the user profile data
-        } else {
-          console.log('No such document!');
+  useFocusEffect(
+    React.useCallback(() => {
+      const fetchUserProfile = async () => {
+        const user = auth.currentUser;
+        if (user) {
+          const userRef = doc(db, 'users', user.uid);
+          const docSnap = await getDoc(userRef);
+  
+          if (docSnap.exists()) {
+            setUserProfile(docSnap.data());
+          } else {
+            console.log('No such document!');
+          }
         }
-      }
-      await fetchFollowers();
-      await fetchFollowing();
-      setLoading(false);
-    };
+        await fetchFollowers();
+        await fetchFollowing();
+        setLoading(false);
+      };
+  
+      fetchUserProfile();
+    }, [])
+  );
 
-    fetchUserProfile();
-  }, []);
-
-  //Fetch followers list
   const fetchFollowers = async () => {
     try {
       const userRef = doc(db, 'users', auth.currentUser.uid);
@@ -48,7 +58,6 @@ const UserProfile = () => {
       if (docSnap.exists()) {
         const followers = docSnap.data().followers || [];
 
-        //fetch full profiles for each follower UID
         const followersData = await Promise.all(
           followers.map(async (followerId) => {
             const followerRef = doc(db, 'users', followerId);
@@ -56,18 +65,17 @@ const UserProfile = () => {
             if (followerSnap.exists()) {
               return { id: followerId, ...followerSnap.data()};
             } else {
-              return { id: followerId, userName: 'Unknown User', profilePictureUrl: ''}; //Default values
+              return { id: followerId, userName: 'Unknown User', profilePictureUrl: ''};
             }
           })
         );
-        setFollowersList(followersData); // update state with full profiles
+        setFollowersList(followersData);
       }
     } catch (error) {
       console.error("Error fetching followers: ", error);
     }
   };
 
-  //Fetch following list
   const fetchFollowing = async () => {
     try {
       const userRef = doc(db, 'users', auth.currentUser.uid);
@@ -75,7 +83,6 @@ const UserProfile = () => {
       if (docSnap.exists()) {
         const following = docSnap.data().following || [];
         
-        //Fetch full profiles for each following UID
         const followingData = await Promise.all(
           following.map(async (followingId) => {
             const followingRef = doc(db, 'users', followingId);
@@ -83,17 +90,18 @@ const UserProfile = () => {
             if (followingSnap.exists()) {
               return { id: followingId, ...followingSnap.data()};
             } else {
-              return { id: followingId, userName: 'Unknown User', profilePictureUrl: ''}; //default values
+              return { id: followingId, userName: 'Unknown User', profilePictureUrl: ''}; 
             }
           })
         );
-        setFollowingList(followingData); //update state with full profiles
+        setFollowingList(followingData); 
       }
     } catch (error) {
       console.error("Error fetching following:", error);
     }
   };
 
+<<<<<<< HEAD
   const handleFollowToggle = async (userId) => {
     try {
       const currentUserRef = doc(db, 'users', auth.currentUser.uid);
@@ -182,6 +190,8 @@ const UserProfile = () => {
   }, []);
 
   //Open selected user's profile
+=======
+>>>>>>> main
   const openUserProfileModal = async (userId) => {
     const userRef = doc(db, 'users', userId);
     const docSnap = await getDoc(userRef);
@@ -199,7 +209,6 @@ const UserProfile = () => {
     setSelectedUserProfile(null);
   };
 
-  //Loading screen
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
@@ -209,18 +218,21 @@ const UserProfile = () => {
     );
   }
 
-  // Tab content rendering
   const renderTabContent = () => {
     switch (selectedTab) {
-      case 'Outfits':
-        return <Outfits />; // Load the outfits grid when the "Outfits" tab is selected
-      case 'Closet':
-        return <Closet />; // Load the Closet component
-      case 'Saved':
-        return <Saved /> // Loads saved component tab
-      default:
-        return null;
-      }
+        case 'Outfits':
+            return <Outfits />; 
+        case 'Closet':
+            return <Closet />;
+        case 'Saved':
+            return (
+                <View>
+                    <Saved />
+                </View>
+            );
+        default:
+            return null;
+    }
   };
 
   return  (
@@ -229,14 +241,34 @@ const UserProfile = () => {
         {/* Header Image */}
         <View style={styles.headerContainer}>
           <Image
-            source={{ uri: userProfile?.headerImage || 'https://via.placeholder.com/600x200' }}
+            source={{ uri: userProfile?.headerImageUrl || 'https://via.placeholder.com/600x200' }}
             style={styles.headerImage}
           />
+        <View style={styles.profileWrapper}>
           {/* Profile Picture */}
           <Image
             source={{ uri: userProfile?.profilePictureUrl || 'https://via.placeholder.com/150' }}
             style={styles.profilePicture}
           />
+
+          <View style={styles.profileButtons}>
+            {/* Edit Profile Button */}
+            <TouchableOpacity
+              style={styles.iconButton}
+              onPress={() => navigation.navigate('ProfileEdit')}
+            >
+              <MaterialCommunityIcons name="pencil" size={24} color="black" />
+            </TouchableOpacity>
+
+            {/* Saved Posts Button */}
+            <TouchableOpacity
+              style={[styles.iconButton, { marginTop: 10 }]}
+              onPress={() => navigation.navigate('SavedPosts')}
+            >
+              <MaterialCommunityIcons name="bookmark" size={24} color="black" />
+            </TouchableOpacity>
+          </View>
+        </View>
         </View>
 
         {/* User Info */}
@@ -332,7 +364,7 @@ const PublicProfile = ({ userProfile, isFollowing, handleFollowToggle}) => (
 
 const styles = StyleSheet.create({
   scrollViewContainer: {
-    padding: 0, // Adjust based on your design
+    padding: 0,
   },
   container: {
       flex: 1,
@@ -347,7 +379,7 @@ const styles = StyleSheet.create({
   headerContainer: {
       width: '100%',
       alignItems: 'center',
-      marginBottom: 10, // Reduced space between header and user info
+      marginBottom: 10,
   },
   headerImage: {
       width: '100%',
@@ -360,25 +392,25 @@ const styles = StyleSheet.create({
       borderRadius: 50,
       borderWidth: 3,
       borderColor: 'white',
-      marginTop: -40, // Reduced the space between the profile picture and the header
+      marginTop: -40,
       zIndex: 1,
   },
   name: {
       color: '#333',
       fontSize: 24,
       fontWeight: 'bold',
-      marginTop: 5, // Reduced space between profile picture and name
+      marginTop: 5,
   },
   bio: {
       color: '#666',
       fontSize: 16,
-      marginVertical: 3, // Adjusted the space between name and bio
+      marginVertical: 3,
       textAlign: 'center',
   },
   userName: {
     color: '#666',
     fontSize: 16,
-    marginVertical: 3, // Adjusted the space between name and bio
+    marginVertical: 3,
     textAlign: 'center',
     },
   stats: {
@@ -502,6 +534,7 @@ const styles = StyleSheet.create({
     marginBottom: 0,
     paddingHorizontal: 20,
   },
+<<<<<<< HEAD
   followButton: {
     backgroundColor: '#007bff',
     padding: 10,
@@ -516,6 +549,46 @@ const styles = StyleSheet.create({
     fontSize: 16,
     textAlign: 'center'
   },
+=======
+  profilePictureContainer: {
+    width: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
+    position: 'relative',
+  },
+  profileButtons: {
+    position: 'absolute',
+    right: '-30%',
+    top: '30%',
+    alignItems: 'center',
+  },
+  iconButton: {
+    backgroundColor: 'white',
+    padding: 8,
+    borderRadius: 20,
+    shadowColor: '#000',
+    shadowOffset: {
+        width: 0,
+        height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
+  },
+  savedPostsButton: {
+    backgroundColor: 'purple',
+    padding: 10,
+    borderRadius: 20,
+    marginTop: 10,
+    width: '50%',
+    alignSelf: 'center'
+  },
+  buttonText: {
+    color: 'white',
+    textAlign: 'center',
+    fontWeight: 'bold'
+  }
+>>>>>>> main
 });
 
 export default UserProfile;
