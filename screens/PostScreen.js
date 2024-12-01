@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, TextInput, Image, FlatList, ActivityIndicator, Modal,} from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, TextInput, Image, FlatList, ActivityIndicator, Modal, KeyboardAvoidingView, ScrollView, Platform } from 'react-native';
 import { collection, addDoc, getDocs } from 'firebase/firestore';
 import { db, auth } from '../firebaseConfig';
 import { onAuthStateChanged } from 'firebase/auth';
@@ -62,7 +62,7 @@ const PostScreen = ({ navigation }) => {
 
             setOutfits(fetchedItems);
         } catch (error) {
-            console.error('Error fetching closet items:', error);
+            console.error('Error fetching outfits:', error);
         } finally {
             setLoading(false);
         }
@@ -105,153 +105,149 @@ const PostScreen = ({ navigation }) => {
     }
 
     return (
-        <View style={styles.container}>
-            <Text style={styles.title}>Create a Post</Text>
+        <KeyboardAvoidingView
+            style={{ flex: 1 }}
+            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        >
+            <ScrollView contentContainerStyle={{ flexGrow: 1 }}>
+                <View style={styles.container}>
+                    <Text style={styles.title}>Create a Post</Text>
 
-            <View style={styles.buttonRow}>
-                <TouchableOpacity style={styles.button3} onPress={() => { setClosetModalVisible(true) }}>
-                    <MaterialCommunityIcons name="hanger" size={40} color={'purple'} />
-                </TouchableOpacity>
-                <TouchableOpacity style={styles.button3} onPress={() => { setOutfitModalVisible(true) }}>
-                    <MaterialCommunityIcons name="tshirt-crew-outline" size={40} color={'purple'} />
-                </TouchableOpacity>
-            </View>
+                    <View style={styles.buttonRow}>
+                        <TouchableOpacity style={styles.button3} onPress={() => { setClosetModalVisible(true) }}>
+                            <MaterialCommunityIcons name="hanger" size={40} color={'purple'} />
+                        </TouchableOpacity>
+                        <TouchableOpacity style={styles.button3} onPress={() => { setOutfitModalVisible(true) }}>
+                            <MaterialCommunityIcons name="tshirt-crew-outline" size={40} color={'purple'} />
+                        </TouchableOpacity>
+                    </View>
 
-            {selectedItem && (
-                <View style={styles.selectedItemContainer}>
-                    <Image
-                        source={{ uri: selectedItem.closetItemUrl || selectedItem.outfitImageUrl }}
-                        style={styles.selectedItemImage}
+                    {selectedItem && (
+                        <View style={styles.selectedItemContainer}>
+                            <Image
+                                source={{ uri: selectedItem.closetItemUrl || selectedItem.outfitImageUrl }}
+                                style={styles.selectedItemImage}
+                            />
+                        </View>
+                    )}
+
+                    <Text style={styles.subtitle}>Caption</Text>
+                    <TextInput
+                        style={styles.captionInput}
+                        placeholder="Write a caption...."
+                        value={caption}
+                        onChangeText={setCaption}
+                        multiline
                     />
-                </View>
-            )}
 
-            <Text style={styles.subtitle}>Caption</Text>
-            <TextInput
-                style={styles.captionInput}
-                placeholder="Write a caption...."
-                value={caption}
-                onChangeText={setCaption}
-                multiline
-            />
+                    <TouchableOpacity
+                        style={[styles.button, buttonPressed ? styles.buttonPressed : styles.button]}
+                        onPressIn={() => setButtonPressed(true)}
+                        onPressOut={() => setButtonPressed(false)}
+                        onPress={handlePost}
+                        activeOpacity={1}
+                    >
+                        <Text style={buttonPressed ? styles.buttonTextPressed : styles.buttonText}>Post</Text>
+                    </TouchableOpacity>
 
-            <TouchableOpacity style={[styles.button, buttonPressed ? styles.buttonPressed : styles.button]} 
-                onPressIn={() => setButtonPressed(true)}
-                onPressOut={() => setButtonPressed(false)} 
-                onPress={(handlePost)}
-                activeOpacity={1}>
-                <Text style={buttonPressed ? styles.buttonTextPressed : styles.buttonText}>Post</Text>
-            </TouchableOpacity>
-
-            {/* Modal for closet items */}
-            <Modal
-            visible={closetModalVisible}
-            transparent={true}
-            animationType="slide"
-            onRequestClose={() => setClosetModalVisible(false)}
-            >
-                <View style={styles.modalContainer}>
-                    <View style={styles.modalContent}>
-                        <Text style={styles.modalTitle}>Select an Item</Text>
-                        <FlatList
-                            data={closetItems}
-                            keyExtractor={(item) => item.id}
-                            numColumns={2}
-                            renderItem={({ item }) => (
+                    {/* Closet Modal */}
+                    <Modal
+                        visible={closetModalVisible}
+                        transparent={true}
+                        animationType="slide"
+                        onRequestClose={() => setClosetModalVisible(false)}
+                    >
+                        <View style={styles.modalContainer}>
+                            <View style={styles.modalContent}>
+                                <Text style={styles.modalTitle}>Select an Item</Text>
+                                <FlatList
+                                    data={closetItems}
+                                    keyExtractor={(item) => item.id}
+                                    numColumns={2}
+                                    renderItem={({ item }) => (
+                                        <TouchableOpacity
+                                            style={styles.modalGridItem}
+                                            onPress={() => {
+                                                setSelectedItem(item);
+                                                setClosetModalVisible(false);
+                                            }}
+                                        >
+                                            <Image
+                                                source={{ uri: item.closetItemUrl }}
+                                                style={styles.modalGridItemImage}
+                                            />
+                                        </TouchableOpacity>
+                                    )}
+                                />
                                 <TouchableOpacity
-                                    style={styles.modalGridItem}
-                                    onPress={() => {
-                                        setSelectedItem(item);
-                                        setClosetModalVisible(false);
-                                    }}
+                                    style={styles.modalCloseButton}
+                                    onPress={() => setClosetModalVisible(false)}
                                 >
-                                    <Image
-                                        source={{ uri: item.closetItemUrl }}
-                                        style={styles.modalGridItemImage}
-                                    />
+                                    <Text style={styles.modalCloseButtonText}>Close</Text>
                                 </TouchableOpacity>
-                            )}
-                        />
-                        <TouchableOpacity
-                            style={styles.modalCloseButton}
-                            onPress={() => setClosetModalVisible(false)}
-                        >
-                            <Text style={styles.modalCloseButtonText}>Close</Text>
-                        </TouchableOpacity>
-                    </View>
-                </View>
-            </Modal>
+                            </View>
+                        </View>
+                    </Modal>
 
-            {/* Modal for outfits */}
-            <Modal
-            visible={outfitModalVisible}
-            transparent={true}
-            animationType="slide"
-            onRequestClose={() => setOutfitModalVisible(false)}
-            >
-                <View style={styles.modalContainer}>
-                    <View style={styles.modalContent}>
-                        <Text style={styles.modalTitle}>Select an Item</Text>
-                        <FlatList
-                            data={outfits}
-                            keyExtractor={(item) => item.id}
-                            numColumns={2}
-                            renderItem={({ item }) => (
+                    {/* Outfits Modal */}
+                    <Modal
+                        visible={outfitModalVisible}
+                        transparent={true}
+                        animationType="slide"
+                        onRequestClose={() => setOutfitModalVisible(false)}
+                    >
+                        <View style={styles.modalContainer}>
+                            <View style={styles.modalContent}>
+                                <Text style={styles.modalTitle}>Select an Item</Text>
+                                <FlatList
+                                    data={outfits}
+                                    keyExtractor={(item) => item.id}
+                                    numColumns={2}
+                                    renderItem={({ item }) => (
+                                        <TouchableOpacity
+                                            style={styles.modalGridItem}
+                                            onPress={() => {
+                                                setSelectedItem(item);
+                                                setOutfitModalVisible(false);
+                                            }}
+                                        >
+                                            <Image
+                                                source={{ uri: item.outfitImageUrl }}
+                                                style={styles.modalGridItemImage}
+                                            />
+                                        </TouchableOpacity>
+                                    )}
+                                />
                                 <TouchableOpacity
-                                    style={styles.modalGridItem}
-                                    onPress={() => {
-                                        setSelectedItem(item);
-                                        setOutfitModalVisible(false);
-                                    }}
+                                    style={styles.modalCloseButton}
+                                    onPress={() => setOutfitModalVisible(false)}
                                 >
-                                    <Image
-                                        source={{ uri: item.outfitImageUrl }}
-                                        style={styles.modalGridItemImage}
-                                    />
+                                    <Text style={styles.modalCloseButtonText}>Close</Text>
                                 </TouchableOpacity>
-                            )}
-                        />
-                        <TouchableOpacity
-                            style={styles.modalCloseButton}
-                            onPress={() => setOutfitModalVisible(false)}
-                        >
-                            <Text style={styles.modalCloseButtonText}>Close</Text>
-                        </TouchableOpacity>
-                    </View>
+                            </View>
+                        </View>
+                    </Modal>
                 </View>
-            </Modal>
-
-        </View>
+            </ScrollView>
+        </KeyboardAvoidingView>
     );
 };
 
 const styles = StyleSheet.create({
-    container: { 
-        flex: 1, 
-        padding: 20, 
+    container: {
+        flex: 1,
+        padding: 20,
         backgroundColor: 'transparent',
         marginTop: 50,
     },
-    title: { 
-        fontSize: 24, 
-        fontWeight: 'heavy', 
+    title: {
+        fontSize: 24,
+        fontWeight: 'heavy',
         marginBottom: 20,
     },
-    subtitle: { 
-        fontSize: 18, 
+    subtitle: {
+        fontSize: 18,
         marginBottom: 10,
-    },
-    selectButton: {
-        backgroundColor: '#333',
-        padding: 10,
-        borderRadius: 10,
-        alignItems: 'center',
-        marginBottom: 20,
-    },
-    selectButtonText: {
-        color: 'white',
-        fontSize: 16,
-        fontWeight: 'bold',
     },
     selectedItemContainer: {
         alignItems: 'center',
@@ -260,19 +256,14 @@ const styles = StyleSheet.create({
         marginBottom: 15,
         width: '45%',
         height: '45%',
-        aspectRatio: 1
+        aspectRatio: 1,
     },
     selectedItemImage: {
         width: '100%',
         height: '100%',
         borderRadius: 10,
-        resizeMode: 'contain',
-        aspectRatio: 1
-    },
-    selectedItemText: {
-        marginTop: 5,
-        fontSize: 16,
-        color: '#333',
+        aspectRatio: 1,
+        resizeMode: 'contain'
     },
     captionInput: {
         borderWidth: 1,
@@ -283,21 +274,49 @@ const styles = StyleSheet.create({
         textAlignVertical: 'top',
         marginBottom: 20,
     },
-    postButton: {
-        backgroundColor: '#333',
-        paddingVertical: 15,
+    buttonRow: {
+        flexDirection: 'row',
+        justifyContent: 'space-evenly',
+        alignItems: 'center',
+        marginVertical: 10,
+    },
+    button: {
+        borderWidth: 1,
+        borderColor: 'purple',
+        paddingVertical: 12,
+        paddingHorizontal: 20,
+        alignItems: 'center',
+        width: '100%',
+        alignSelf: 'center',
         borderRadius: 10,
-        alignItems: 'center',
+        backgroundColor: 'transparent',
     },
-    postButtonText: {
+    buttonPressed: {
+        backgroundColor: 'purple',
+    },
+    buttonText: {
+        color: 'purple',
+        fontSize: 15,
+        fontWeight: 'regular',
+        fontFamily: 'Helvetica',
+    },
+    buttonTextPressed: {
         color: 'white',
-        fontSize: 18,
-        fontWeight: 'bold',
     },
-    loadingContainer: { 
-        flex: 1, 
-        justifyContent: 'center', 
+    loadingContainer: {
+        flex: 1,
+        justifyContent: 'center',
         alignItems: 'center',
+    },
+    button3: {
+        borderRadius: 20,
+        borderWidth: 1,
+        borderColor: 'purple',
+        padding: 10,
+        alignItems: 'center',
+        justifyContent: 'center',
+        width: 150,
+        height: 150,
     },
     modalContainer: {
         flex: 1,
@@ -316,18 +335,21 @@ const styles = StyleSheet.create({
         fontWeight: 'bold',
         marginBottom: 20,
     },
-    modalItemContainer: {
-        marginBottom: 20,
+    modalGridItem: {
+        flex: 1,
+        margin: 10,
         alignItems: 'center',
-    },
-    modalItemImage: {
-        width: 80,
-        height: 80,
+        justifyContent: 'center',
+        borderWidth: 1,
+        borderColor: '#ccc',
         borderRadius: 10,
+        overflow: 'hidden',
+        aspectRatio: 1,
     },
-    modalItemText: {
-        marginTop: 5,
-        fontSize: 14,
+    modalGridItemImage: {
+        width: '100%',
+        height: '100%',
+        borderRadius: 10,
     },
     modalCloseButton: {
         backgroundColor: '#333',
@@ -340,69 +362,6 @@ const styles = StyleSheet.create({
         color: 'white',
         fontSize: 16,
         fontWeight: 'bold',
-    },
-    modalGridItem: {
-        flex: 1,
-        margin: 10,
-        alignItems: 'center',
-        justifyContent: 'center',
-        borderWidth: 1,
-        borderColor: '#ccc',
-        borderRadius: 10,
-        overflow: 'hidden',
-        aspectRatio: 1
-    },
-    modalGridItemImage: {
-        width: '100%',
-        height: '100%',
-        borderRadius: 10,
-        resizeMode: 'contain',
-        aspectRatio: 1
-
-    },
-    modalGridItemText: {
-        marginTop: 5,
-        fontSize: 14,
-        textAlign: 'center',
-    },
-    button3: {
-        borderRadius: 20,
-        borderWidth: 1,
-        borderColor: 'purple',
-        padding: 10,
-        alignItems: 'center',
-        justifyContent: 'center',
-        width: 150,
-        height: 150,
-    },
-    buttonRow: {
-        flexDirection: 'row',
-        justifyContent: 'space-evenly',
-        alignItems: 'center',
-        marginVertical: 10,
-    },
-    button: {
-        borderWidth: 1,
-        borderColor: "purple",
-        paddingVertical: 12,
-        paddingHorizontal: 20, 
-        alignItems: 'center',
-        width: '100%',
-        alignSelf: 'center',
-        borderRadius: 10,
-        backgroundColor: 'transparent',
-    },
-    buttonPressed: {
-        backgroundColor: "purple",
-    },
-    buttonText: {
-        color: "purple", 
-        fontSize: 15, 
-        fontWeight: 'regular', 
-        fontFamily: "Helvetica",
-    },
-    buttonTextPressed: {
-        color: "white",
     },
 });
 
