@@ -117,15 +117,19 @@ const UserProfile = ({navigation}) => {
 
   const renderTabContent = () => {
     switch (selectedTab) {
-      case 'Outfits':
-        return <Outfits />; 
-      case 'Closet':
-        return <Closet />;
-      case 'Saved':
-        return <Saved />
-      default:
-        return null;
-      }
+        case 'Outfits':
+            return <Outfits />; 
+        case 'Closet':
+            return <Closet />;
+        case 'Saved':
+            return (
+                <View>
+                    <Saved />
+                </View>
+            );
+        default:
+            return null;
+    }
   };
 
   return  (
@@ -144,13 +148,23 @@ const UserProfile = ({navigation}) => {
             style={styles.profilePicture}
           />
 
-          {/* Edit Profile Button */}
-          <TouchableOpacity
-            style={styles.editButton}
-            onPress={() => navigation.navigate('ProfileEdit')}
-          >
-            <MaterialCommunityIcons name="pencil" size={24} color="black" />
-          </TouchableOpacity>
+          <View style={styles.profileButtons}>
+            {/* Edit Profile Button */}
+            <TouchableOpacity
+              style={styles.iconButton}
+              onPress={() => navigation.navigate('ProfileEdit')}
+            >
+              <MaterialCommunityIcons name="pencil" size={24} color="black" />
+            </TouchableOpacity>
+
+            {/* Saved Posts Button */}
+            <TouchableOpacity
+              style={[styles.iconButton, { marginTop: 10 }]}
+              onPress={() => navigation.navigate('SavedPosts')}
+            >
+              <MaterialCommunityIcons name="bookmark" size={24} color="black" />
+            </TouchableOpacity>
+          </View>
         </View>
         </View>
 
@@ -416,11 +430,38 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     position: 'relative',
   },
-  editButton: {
+  profileButtons: {
     position: 'absolute',
     right: '-30%',
     top: '30%',
+    alignItems: 'center',
   },
+  iconButton: {
+    backgroundColor: 'white',
+    padding: 8,
+    borderRadius: 20,
+    shadowColor: '#000',
+    shadowOffset: {
+        width: 0,
+        height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
+  },
+  savedPostsButton: {
+    backgroundColor: 'purple',
+    padding: 10,
+    borderRadius: 20,
+    marginTop: 10,
+    width: '50%',
+    alignSelf: 'center'
+  },
+  buttonText: {
+    color: 'white',
+    textAlign: 'center',
+    fontWeight: 'bold'
+  }
 });
 
 export default UserProfile;

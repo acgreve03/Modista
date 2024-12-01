@@ -14,6 +14,7 @@ const PostDetailsScreen = ({ route, navigation }) => {
     const [currentUser, setCurrentUser] = useState(null);
     const [liked, setLiked] = useState(false);
     const [modalVisible, setModalVisible] = useState(false);
+    const [isSaved, setIsSaved] = useState(false);
 
     useEffect(() => {
         const fetchCurrentUser = () => {
@@ -25,6 +26,25 @@ const PostDetailsScreen = ({ route, navigation }) => {
         fetchPostDetails(postId);
         fetchComments(postId);
     }, [postId]);
+
+    useEffect(() => {
+        const fetchData = async () => {
+            await fetchPostDetails(postId);
+            if (route.params?.onPostUpdated) {
+                route.params.onPostUpdated();
+            }
+        };
+        fetchData();
+    }, [postId]);
+
+    useEffect(() => {
+        const checkIfSaved = async () => {
+            if (post && currentUser) {
+                setIsSaved(post.saves?.includes(currentUser.uid) || false);
+            }
+        };
+        checkIfSaved();
+    }, [post, currentUser]);
 
     const fetchPostDetails = async (postId) => {
         try {
@@ -73,29 +93,14 @@ const PostDetailsScreen = ({ route, navigation }) => {
             const commentsRef = collection(db, `posts/${postId}/comments`);
             const q = query(commentsRef, orderBy('timestamp', 'asc'));
             const querySnapshot = await getDocs(q);
-    
+
             const fetchedComments = await Promise.all(
                 querySnapshot.docs.map(async (commentDoc) => {
                     const commentData = commentDoc.data();
-    
-                    if (!commentData.userId) {
-                        console.warn('Comment missing userId:', commentData);
-                        return {
-                            id: commentDoc.id,
-                            ...commentData,
-                            username: 'Anonymous',
-                            profilePicture: 'https://via.placeholder.com/40',
-                        };
-                    }
-    
                     const userRef = doc(db, 'users', commentData.userId);
                     const userSnapshot = await getDoc(userRef);
-    
-                    let userData = {};
-                    if (userSnapshot.exists()) {
-                        userData = userSnapshot.data();
-                    }
-    
+                    let userData = userSnapshot.exists() ? userSnapshot.data() : {};
+
                     return {
                         id: commentDoc.id,
                         ...commentData,
@@ -104,7 +109,7 @@ const PostDetailsScreen = ({ route, navigation }) => {
                     };
                 })
             );
-    
+
             setComments(fetchedComments);
         } catch (error) {
             console.error('Error fetching comments:', error);
@@ -142,22 +147,24 @@ const PostDetailsScreen = ({ route, navigation }) => {
         }
     };
 
-    const handleAddComment = async () => {
-        if (!newComment.trim()) {
-            alert('Comment cannot be empty.');
-            return;
-        }
+    const addComment = async () => {
+        if (!newComment.trim()) return;
 
         try {
             const commentsRef = collection(db, `posts/${postId}/comments`);
+            const userRef = doc(db, 'users', currentUser.uid);
+            const userSnapshot = await getDoc(userRef);
+            const userData = userSnapshot.data();
+
             await addDoc(commentsRef, {
-                text: newComment,
-                timestamp: Timestamp.now(),
-                userId: currentUser.uid
+                userId: currentUser.uid,
+                text: newComment.trim(),
+                timestamp: new Date().toISOString(),
+                username: userData.userName,
+                userProfilePic: userData.profilePictureUrl
             });
 
             setNewComment('');
-            setModalVisible(false);
             fetchComments(postId);
         } catch (error) {
             console.error('Error adding comment:', error);
@@ -193,6 +200,38 @@ const PostDetailsScreen = ({ route, navigation }) => {
             }
         } catch (error) {
             console.error('Error updating like status:', error);
+        }
+    };
+
+    const handleSavePost = async () => {
+        if (!currentUser) return;
+        
+        try {
+            const postRef = doc(db, 'posts', postId);
+            const postDoc = await getDoc(postRef);
+            
+            if (postDoc.exists()) {
+                const currentSaves = postDoc.data().saves || [];
+                let newSaves;
+                
+                if (isSaved) {
+                    newSaves = currentSaves.filter(id => id !== currentUser.uid);
+                } else {
+                    newSaves = [...currentSaves, currentUser.uid];
+                }
+                
+                await updateDoc(postRef, {
+                    saves: newSaves
+                });
+                
+                setIsSaved(!isSaved);
+                
+                if (route.params?.onPostUnsaved) {
+                    route.params.onPostUnsaved();
+                }
+            }
+        } catch (error) {
+            console.error('Error saving/unsaving post:', error);
         }
     };
 
@@ -244,6 +283,15 @@ const PostDetailsScreen = ({ route, navigation }) => {
                             <MaterialCommunityIcons name="trash-can-outline" size={25} color={"red"}/>
                         </TouchableOpacity>
                     )}
+
+                    {/* Save Button */}
+                    <TouchableOpacity onPress={handleSavePost}>
+                        <MaterialCommunityIcons 
+                            name={isSaved ? "bookmark" : "bookmark-outline"} 
+                            size={24} 
+                            color={isSaved ? "purple" : "black"} 
+                        />
+                    </TouchableOpacity>
                 </View>
             </View>
 
@@ -303,7 +351,7 @@ const PostDetailsScreen = ({ route, navigation }) => {
                             <TouchableOpacity onPress={() => setModalVisible(false)} style={styles.cancelButton}>
                                 <Text style={styles.cancelButtonText}>Cancel</Text>
                             </TouchableOpacity>
-                            <TouchableOpacity onPress={handleAddComment} style={styles.submitButton}>
+                            <TouchableOpacity onPress={addComment} style={styles.submitButton}>
                                  <MaterialCommunityIcons name="send-outline" marginBottom={5} size={25} color={"black"} />
                             </TouchableOpacity>
                         </View>
