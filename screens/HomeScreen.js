@@ -1,76 +1,224 @@
-/*
-View: A container that supports layout with flexbox.
-Text: For displaying text.
-FlatList: For rendering a list of items efficiently.
-Image: For displaying images.
-StyleSheet: For creating styles.
-Dimensions: For getting the width and height of the screen. */
-
-import React, {useState} from 'react';
-import { View, FlatList, Image, StyleSheet, Dimensions, TouchableOpacity, Text, Modal, ScrollView, TextInput } from 'react-native';
-import pinData from '../data/PinData';
-import Ionicons from '@expo/vector-icons/Ionicons';
-import Feather from '@expo/vector-icons/Feather';
+import React, { useState, useEffect } from 'react';
+import { 
+  View, 
+  Alert,
+  FlatList, 
+  Image, 
+  StyleSheet, 
+  Dimensions, 
+  TouchableOpacity, 
+  Text, 
+  Modal, 
+  ScrollView,
+  TextInput,
+  KeyboardAvoidingView,
+  Platform
+} from 'react-native';
+import { db, auth } from '../firebaseConfig';
+import { 
+  collection, 
+  doc, 
+  updateDoc, 
+  arrayUnion, 
+  arrayRemove,
+  getDocs,
+  serverTimestamp,
+  getDoc
+} from 'firebase/firestore';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 
 const screenWidth = Dimensions.get('window').width;
-const screenHeight = Dimensions.get('window').height;
+const COLUMN_WIDTH = (screenWidth - 48) / 2;
 
-//Temporary dummy data for other users profiles
-const otherUserProfiles = [
-  {
-    username: 'jane_doe',
-    userAvatar: 'https://picsum.photos/seed/avatar/50/50',
-  },
-  {
-    username: 'john.smith',
-    userAvatar: 'https://picsum.photos/seed/avatar/50/50',
-  },
-  {
-    username: 'BettyBoo',
-    userAvatar: 'https://picsum.photos/seed/avatar/50/50',
-  },
-  {
-    username: 'Alice._.Wonder',
-    userAvatar: 'https://picsum.photos/seed/avatar/50/50',
-  },
-  {
-    username: 'Bob_the_Builder',
-    userAvatar: 'https://picsum.photos/seed/avatar/50/50',
-  },
-  {
-    username: 'HatterMad',
-    userAvatar: 'https://picsum.photos/seed/avatar/50/50',
-  },
-  {
-    username: 'Rabbit',
-    userAvatar: 'https://picsum.photos/seed/avatar/50/50',
-  },
-  {
-    username: 'AnonPanda',
-    userAvatar: 'https://picsum.photos/seed/avatar/50/50',
-  },
-];
-
-// Function to merge pins with other users profile for testing
-const mergePinsWithUsers = () => {
-  return pinData.map((pin,index) => {
-    const user = otherUserProfiles[index % otherUserProfiles.length];
-    return {
-      ...pin,
-      username: user.username,
-      userAvatar: user.userAvatar,
-    };
-  });
-};
-
-const HomeScreen = () => {
+export default function HomeScreen() {
+  const [posts, setPosts] = useState([]);
   const [modalVisible, setModalVisible] = useState(false);
   const [selectedPin, setSelectedPin] = useState(null);
-  const [comment, setComment] = useState('');
-  const [comments, setComments] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [newComment, setNewComment] = useState('');
 
-  const pinsWithUsers = mergePinsWithUsers(); //Combined data for use
+  const handleLike = async (postId) => {
+    if (!auth.currentUser) {
+      Alert.alert('Sign in required', 'Please sign in to like posts');
+      return;
+    }
+
+    try {
+      const userId = auth.currentUser.uid;
+      const postRef = doc(db, 'posts', postId);
+      const post = posts.find(p => p.id === postId);
+      const isLiked = post.likes?.includes(userId);
+
+      await updateDoc(postRef, {
+        likes: isLiked ? arrayRemove(userId) : arrayUnion(userId)
+      });
+
+      setPosts(currentPosts => 
+        currentPosts.map(post => {
+          if (post.id === postId) {
+            const updatedLikes = isLiked 
+              ? post.likes.filter(id => id !== userId)
+              : [...(post.likes || []), userId];
+            
+            return {
+              ...post,
+              likes: updatedLikes,
+              isLiked: !isLiked
+            };
+          }
+          return post;
+        })
+      );
+
+      if (selectedPin?.id === postId) {
+        setSelectedPin(prev => ({
+          ...prev,
+          likes: isLiked 
+            ? prev.likes.filter(id => id !== userId)
+            : [...(prev.likes || []), userId],
+          isLiked: !isLiked
+        }));
+      }
+
+    } catch (error) {
+      console.error('Error updating like:', error);
+      Alert.alert('Error', 'Failed to update like');
+    }
+  };
+
+  const handleComment = async (postId) => {
+    if (!auth.currentUser) {
+      Alert.alert('Sign in required', 'Please sign in to comment');
+      return;
+    }
+
+    if (!newComment.trim()) {
+      return;
+    }
+
+    try {
+      const userId = auth.currentUser.uid;
+      const userRef = doc(db, 'users', userId);
+      const userDoc = await getDoc(userRef);
+      const userData = userDoc.data();
+
+      const comment = {
+        userId: userId,
+        text: newComment.trim(),
+        timestamp: new Date().toISOString(),
+        username: userData.userName || 'User',
+        userProfilePic: userData.profilePictureUrl || null,
+        firstName: userData.firstName,
+        lastName: userData.lastName
+      };
+
+      const postRef = doc(db, 'posts', postId);
+      await updateDoc(postRef, {
+        comments: arrayUnion(comment)
+      });
+
+      // Update local state
+      setPosts(currentPosts => 
+        currentPosts.map(post => {
+          if (post.id === postId) {
+            return {
+              ...post,
+              comments: [...(post.comments || []), comment]
+            };
+          }
+          return post;
+        })
+      );
+
+      if (selectedPin?.id === postId) {
+        setSelectedPin(prev => ({
+          ...prev,
+          comments: [...(prev.comments || []), comment]
+        }));
+      }
+
+      setNewComment('');
+
+    } catch (error) {
+      console.error('Error adding comment:', error);
+      Alert.alert('Error', 'Failed to add comment');
+    }
+  };
+
+  const handleSave = async (postId) => {
+    if (!auth.currentUser) {
+      Alert.alert('Sign in required', 'Please sign in to save posts');
+      return;
+    }
+
+    try {
+      const userId = auth.currentUser.uid;
+      const postRef = doc(db, 'posts', postId);
+      const post = posts.find(p => p.id === postId);
+      const isSaved = post.saves?.includes(userId);
+
+      await updateDoc(postRef, {
+        saves: isSaved ? arrayRemove(userId) : arrayUnion(userId)
+      });
+
+      setPosts(currentPosts => 
+        currentPosts.map(post => {
+          if (post.id === postId) {
+            const updatedSaves = isSaved 
+              ? post.saves.filter(id => id !== userId)
+              : [...(post.saves || []), userId];
+            
+            return {
+              ...post,
+              saves: updatedSaves,
+              isSaved: !isSaved
+            };
+          }
+          return post;
+        })
+      );
+
+      if (selectedPin?.id === postId) {
+        setSelectedPin(prev => ({
+          ...prev,
+          saves: isSaved 
+            ? prev.saves.filter(id => id !== userId)
+            : [...(prev.saves || []), userId],
+          isSaved: !isSaved
+        }));
+      }
+
+    } catch (error) {
+      console.error('Error updating save:', error);
+      Alert.alert('Error', 'Failed to save post');
+    }
+  };
+
+  const fetchPosts = async () => {
+    try {
+      setLoading(true);
+      const postsRef = collection(db, 'posts');
+      const querySnapshot = await getDocs(postsRef);
+      
+      const postsData = querySnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data(),
+        comments: doc.data().comments || [],
+        isLiked: doc.data().likes?.includes(auth.currentUser?.uid),
+        isSaved: doc.data().saves?.includes(auth.currentUser?.uid)
+      }));
+      
+      setPosts(postsData);
+    } catch (error) {
+      console.error('Error fetching posts:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchPosts();
+  }, []);
 
   const handlePinPress = (pin) => {
     setSelectedPin(pin);
@@ -79,226 +227,345 @@ const HomeScreen = () => {
 
   const handleCloseModal = () => {
     setModalVisible(false);
+    setSelectedPin(null);
   };
 
-  const handleCommentSubmit = () => {
-    const trimmedComment = comment.trim();
-    if (trimmedComment && !comments.includes(trimmedComment)) {
-      setComments([...comments, trimmedComment]);
-      setComment('');
+  const renderPin = ({ item }) => (
+    <TouchableOpacity 
+      onPress={() => handlePinPress(item)}
+      activeOpacity={0.9}
+    >
+      <View style={styles.pinContainer}>
+        <Image 
+          source={{ uri: item.itemImage }}
+          style={[
+            styles.pinImage,
+            {
+              width: COLUMN_WIDTH,
+              height: COLUMN_WIDTH * 1.5,
+            }
+          ]} 
+          resizeMode="cover"
+        />
+      </View>
+    </TouchableOpacity>
+  );
+
+  const initializeCommentsArray = async (postId) => {
+    try {
+      const postRef = doc(db, 'posts', postId);
+      await updateDoc(postRef, {
+        comments: []
+      });
+    } catch (error) {
+      console.error('Error initializing comments:', error);
     }
   };
 
-  const renderPin = ({ item }) => {
-    return(
-      <TouchableOpacity onPress={() => handlePinPress(item)}>
-        <View style={styles.pinContainer}>
-          <Image source={{uri: item.imageUrl}} style={[styles.pinImage, {aspectRatio: item.aspectRatio}]} />
-        </View>
-      </TouchableOpacity>
-    ); 
-  };
-
   return (
-   <View style={styles.container}>
-    <FlatList
-      data={pinsWithUsers} // use merged pins with user data
-      renderItem={renderPin}
-      keyExtractor={(item) => item.id.toString()}
-      numColumns={2}
-      columnWrapperStyle={styles.columnWrapper}
-      showsVerticalScrollIndicator={false}
-    />
-    {/* Modal for detailed pin view */}
-    <Modal visible={modalVisible} transparent={false} animationType="slide" onRequestClose={handleCloseModal}>
-      <View style={styles.modalFullScreenContainer}>
-        <TouchableOpacity style={styles.backButton} onPress={handleCloseModal}>
-          <MaterialCommunityIcons name="arrow-left" size={24} color="black" />
-        </TouchableOpacity>
+    <View style={styles.container}>
+      <FlatList
+        data={posts}
+        renderItem={renderPin}
+        keyExtractor={(item) => item.id}
+        numColumns={2}
+        columnWrapperStyle={styles.columnWrapper}
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.listContainer}
+        onRefresh={fetchPosts}
+        refreshing={loading}
+      />
 
-        <ScrollView style={styles.modalContentFullScreen}>
+      <Modal 
+        visible={modalVisible} 
+        animationType="slide" 
+        onRequestClose={handleCloseModal}
+      >
+        <KeyboardAvoidingView 
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
+          style={styles.modalContainer}
+          keyboardVerticalOffset={Platform.OS === "ios" ? 100 : 0}
+        >
+          <TouchableOpacity 
+            style={styles.closeButton} 
+            onPress={handleCloseModal}
+          >
+            <MaterialCommunityIcons 
+              name="arrow-left" 
+              size={24} 
+              color="#000" 
+            />
+          </TouchableOpacity>
+
           {selectedPin && (
-            <>
-              <Image source={{uri: selectedPin.imageUrl}} style={styles.fullImage} />
-              
-              {/* Engagement Metrics */}
-              <View style={styles.engagementMetrics}>
-                <View style={styles.metricsRow}>
-                  <View style={styles.metricItem}>
-                    <MaterialCommunityIcons name="heart-outline" size={20}/>
-                    <Text style={styles.metricText}>{selectedPin.likesCount}</Text>
-                  </View>
-                  <View style={styles.metricItem}>
-                    <MaterialCommunityIcons name="comment-outline" size={20}/>
-                    <Text style={styles.metricText}>{selectedPin.commentsCount}</Text>
-                  </View>
-                  <TouchableOpacity style={styles.iconButton}>
-                    <Ionicons name="filter-outline" size={20} color="black"/>
+            <View style={styles.modalContentWrapper}>
+              <ScrollView style={styles.modalContent}>
+                <Image 
+                  source={{ uri: selectedPin.itemImage }}
+                  style={styles.modalImage} 
+                />
+                
+                <View style={styles.interactionBar}>
+                  <TouchableOpacity 
+                    onPress={() => handleLike(selectedPin.id)}
+                    style={styles.interactionButton}
+                  >
+                    <MaterialCommunityIcons 
+                      name={selectedPin.isLiked ? "heart" : "heart-outline"} 
+                      size={24} 
+                      color={selectedPin.isLiked ? "#ff0000" : "#000"} 
+                    />
+                    <Text style={styles.likeCount}>
+                      {selectedPin.likes?.length || 0}
+                    </Text>
                   </TouchableOpacity>
-                  <TouchableOpacity style={styles.iconButton}>
-                    <Feather name="share" size={20} color="black" />
-                  </TouchableOpacity>
-                  <TouchableOpacity style={styles.followButton}>
-                    <Text style={styles.followButtonText}>Follow</Text>
+
+                  <TouchableOpacity 
+                    onPress={() => handleSave(selectedPin.id)}
+                    style={styles.interactionButton}
+                  >
+                    <MaterialCommunityIcons 
+                      name={selectedPin.isSaved ? "bookmark" : "bookmark-outline"} 
+                      size={24} 
+                      color={selectedPin.isSaved ? "#000" : "#000"} 
+                    />
                   </TouchableOpacity>
                 </View>
-              </View>
-              
-              {/* Other users information */}
-              <View style={styles.profileSection}>
-                <Image source={{uri: selectedPin.userAvatar}} style={styles.profileImage} />
-                <Text style={styles.username}>{selectedPin.username}</Text>
-              </View>
-              <Text style={styles.outfitCaption}>{selectedPin.caption}</Text>
-              <Text style={styles.outfitDescription}>{selectedPin.description}</Text>
 
-              {/*Comment section*/}
-              <TextInput
-                style={styles.commentInput}
-                placeholder="Leave a comment..."
-                value={comment}
-                onChangeText={setComment}
-                onSubmitEditing={handleCommentSubmit}
-              />
+                <Text style={styles.caption}>{selectedPin.caption}</Text>
+                <Text style={styles.timestamp}>
+                  {new Date(selectedPin.timestamp).toLocaleDateString()}
+                </Text>
 
-              <View style={styles.commentsSection}>
-                {comments.map((c,index) => (
-                  <Text key={index} style={styles.comment}>{c}</Text>
-                ))}
+                <View style={styles.commentsSection}>
+                  <Text style={styles.commentsHeader}>
+                    Comments ({selectedPin.comments?.length || 0})
+                  </Text>
+                  {selectedPin.comments?.map((comment, index) => (
+                    <View key={index} style={styles.commentItem}>
+                      <View style={styles.commentHeader}>
+                        {comment.userProfilePic ? (
+                          <Image 
+                            source={{ uri: comment.userProfilePic }} 
+                            style={styles.commentUserPic}
+                          />
+                        ) : (
+                          <View style={styles.commentUserPlaceholder}>
+                            <MaterialCommunityIcons 
+                              name="account" 
+                              size={20} 
+                              color="#666" 
+                            />
+                          </View>
+                        )}
+                        <Text style={styles.commentUsername}>
+                          {comment.firstName} {comment.lastName}
+                        </Text>
+                      </View>
+                      <Text style={styles.commentText}>
+                        {comment.text}
+                      </Text>
+                      <Text style={styles.commentTimestamp}>
+                        {new Date(comment.timestamp).toLocaleDateString()}
+                      </Text>
+                    </View>
+                  ))}
+                </View>
+              </ScrollView>
+
+              <View style={styles.commentInputContainer}>
+                <TextInput
+                  style={styles.commentInput}
+                  placeholder="Add a comment..."
+                  value={newComment}
+                  onChangeText={setNewComment}
+                  multiline
+                  maxLength={500}
+                />
+                <TouchableOpacity 
+                  style={[
+                    styles.commentButton,
+                    !newComment.trim() && styles.commentButtonDisabled
+                  ]}
+                  onPress={() => handleComment(selectedPin.id)}
+                  disabled={!newComment.trim()}
+                >
+                  <MaterialCommunityIcons 
+                    name="send" 
+                    size={24} 
+                    color={newComment.trim() ? "#007AFF" : "#999"} 
+                  />
+                </TouchableOpacity>
               </View>
-            </>
+            </View>
           )}
-        </ScrollView>
-      </View>
-    </Modal>
-   </View>
+        </KeyboardAvoidingView>
+      </Modal>
+    </View>
   );
-};
+}
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    padding: 20,
     backgroundColor: '#fff',
+  },
+  listContainer: {
+    padding: 16,
+  },
+  columnWrapper: {
+    justifyContent: 'space-between',
+    marginBottom: 16,
   },
   pinContainer: {
-    width: (screenWidth / 2) - 30,
-    marginBottom: 10, 
-    marginHorizontal: 5,
-    backgroundColor: '#f3f3f3',
-    borderRadius: 10,
+    borderRadius: 16,
     overflow: 'hidden',
+    backgroundColor: '#f0f0f0',
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
   },
   pinImage: {
-    width: '100%', 
-    height: undefined,
-    resizeMode: 'cover',
-  }, 
-  columnWrapper: {
-    justifyContent: 'space-between', 
+    backgroundColor: '#e1e1e1',
   },
-  modalFullScreenContainer: {
+  modalContainer: {
     flex: 1,
-    justifyContent: 'flex-start',
-    alignItems: 'center',
     backgroundColor: '#fff',
   },
-  modalContentFullScreen: {
-    width: '100%',
-    padding: 20,
-  },
-  backButton: {
+  closeButton: {
     position: 'absolute',
-    top: 80,
-    left: 25,
-    backgroundColor: 'white',
-    padding: 10,
-    borderRadius: 5,
+    top: 40,
+    left: 16,
     zIndex: 10,
+    backgroundColor: '#fff',
+    borderRadius: 20,
+    padding: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
   },
-  fullImage: {
+  modalContentWrapper: {
+    flex: 1,
+  },
+  modalContent: {
+    flex: 1,
+  },
+  modalImage: {
     width: '100%',
-    height: screenHeight * 0.6,
+    height: screenWidth * 1.5,
     resizeMode: 'cover',
-    borderRadius: 10,
-    marginTop: 55,
   },
-  profileSection: {
+  caption: {
+    fontSize: 16,
+    padding: 16,
+    lineHeight: 24,
+  },
+  timestamp: {
+    fontSize: 12,
+    color: '#666',
+    paddingHorizontal: 16,
+    marginBottom: 16,
+  },
+  commentsSection: {
+    padding: 16,
+  },
+  commentsHeader: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    marginBottom: 12,
+  },
+  commentItem: {
+    marginBottom: 16,
+    backgroundColor: '#f8f8f8',
+    padding: 12,
+    borderRadius: 8,
+  },
+  commentHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginVertical: 10,
+    marginBottom: 8,
   },
-  profileImage: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+  commentUserPic: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    marginRight: 8,
   },
-  username: {
-    paddingLeft: 10,
+  commentUserPlaceholder: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: '#eee',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 8,
+  },
+  commentUsername: {
     fontWeight: 'bold',
-    fontSize: 16,
-  },
-  followButton: {
-    backgroundColor: '#333',
-    padding: 5,
-    borderRadius: 5,
-    marginLeft: 15,
-  },
-  followButtonText: {
-    color: '#fff',
     fontSize: 14,
+    color: '#000',
   },
-  outfitCaption: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    marginVertical: 5,
-    textAlign: 'left',
-  },
-  outfitDescription: {
+  commentText: {
     fontSize: 14,
-    color: 'grey',
-    marginBottom: 10,
-    textAlign: 'left',
+    lineHeight: 20,
+    color: '#333',
+    marginLeft: 32,
+  },
+  commentTimestamp: {
+    fontSize: 12,
+    color: '#666',
+    marginTop: 4,
+    marginLeft: 32,
+  },
+  commentInputContainer: {
+    flexDirection: 'row',
+    padding: 16,
+    borderTopWidth: 1,
+    borderTopColor: '#eee',
+    backgroundColor: '#fff',
   },
   commentInput: {
-    height: 40,
-    borderColor: '#ccc',
+    flex: 1,
     borderWidth: 1,
-    borderRadius: 5,
-    paddingHorizontal: 10,
-    marginBottom: 10,
+    borderColor: '#ddd',
+    borderRadius: 20,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    marginRight: 8,
+    maxHeight: 100,
+    backgroundColor: '#f8f8f8',
   },
-  commentSection: {
-    maxHeight: 200,
-    marginBottom: 10,
+  commentButton: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    width: 40,
   },
-  comment: {
-    marginVertical: 5,
-    padding: 5,
-    backgroundColor: '#f0f0f0',
-    borderRadius: 5,
+  commentButtonDisabled: {
+    opacity: 0.5,
   },
-  engagementMetrics: {
-    marginVertical: 5,
-    alignItems: 'flex-start',
+  interactionBar: {
+    flexDirection: 'row',
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#eee',
   },
-  metricsRow: {
+  interactionButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    flexWrap: 'wrap',
+    marginRight: 16,
   },
-  metricItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginHorizontal: 5,
+  likeCount: {
+    marginLeft: 8,
+    fontSize: 16,
   },
-  metricText: {
-    fontSize: 14,
-    marginLeft: 2,
-  },
-  iconButton: {
-    marginHorizontal: 5,
+  commentSpacing: {
+    height: 60, // Add extra space at bottom of comments for keyboard
   },
 });
-
-export default HomeScreen;

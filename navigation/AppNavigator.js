@@ -20,6 +20,7 @@ import AddToCloset from '../screens/Profile/AddToCloset';
 import PostDetailsScreen from '../screens/PostDetailScreen';
 import Outfits from '../screens/Profile/Outfits';
 import ProfileEdit from '../screens/Profile/ProfileEdit';
+import OutfitGeneration from '../screens/OutfitGenerateDisplay';
 
 // Create the Tab Navigator for the Main Page
 const Tab = createBottomTabNavigator();
@@ -93,7 +94,7 @@ function MainTabs({navigation}) {
           </TouchableOpacity>
           <Text style={{top: 140, right: 272, position: 'absolute'}}> Post </Text>
 
-          <TouchableOpacity style = {styles.button2} >
+          <TouchableOpacity style = {styles.button2} onPress={() => { setGlobalModalVisible(false); navigation.navigate('OutfitGeneration'); }} >
           <Ionicons name="sparkles" size='30' color={'purple'}></Ionicons>
           </TouchableOpacity>
           <Text style={{alignSelf: 'center', top: 140, position: 'absolute'}}> Modista </Text>
@@ -129,8 +130,7 @@ function App() {
         <Stack.Screen name="ProfileEdit" component={ProfileEdit} />
         <Stack.Screen name="PostScreen" component={PostScreen} />
         <Stack.Screen name="AddToCloset" component={AddToCloset} />
-        <Stack.Screen name="PostDetailsScreen" component={PostDetailsScreen} />
-        <Stack.Screen name="Outfits" component={Outfits} />
+        <Stack.Screen name="OutfitGeneration" component={OutfitGeneration} />
         <Stack.Screen name="Main" component={MainTabs}>
         </Stack.Screen>
       </Stack.Navigator>
