@@ -327,7 +327,11 @@ const UserProfile = ({navigation}) => {
 
 const PublicProfile = ({ userProfile, isFollowing, handleFollowToggle}) => (
   <View style={styles.publicProfileContainer}>
-    <Image source={{ uri: userProfile?.profilePictureUrl || 'https://via.placeholder.com/150'}} style={styles.publicProfilePicture}
+    <View style={styles.publicProfilePictureWrapper}>
+      <Image source={{ uri: userProfile?.profilePictureUrl || 'https://via.placeholder.com/150'}} style={styles.publicProfilePicture}
+      />
+    </View>
+    <Image source={{ uri: userProfile?.headerImageUrl || 'https://via.placeholder.com/600x200'}} style={styles.publicHeaderImage}
     />
     <Text style={styles.publicName}>{`${userProfile?.firstName} ${userProfile.lastName}`}</Text>
     <Text style={styles.publicUserName}>{userProfile?.userName}</Text>
@@ -488,13 +492,25 @@ const styles = StyleSheet.create({
     paddnigTop: 50,
     backgrouondColor: 'white',
   },
+  publicHeaderImage: {
+    width: '100%',
+    height: 130,
+    resizeMode: 'cover',
+    position: 'relative',
+  },
   publicProfilePicture: {
     width: 100,
     height: 100,
     borderRadius: 60,
     borderWidth: 2,
-    borderColor: '#ddd',
+    borderColor: 'white',
     marginBottom: 15,
+    zIndex: 1,
+  },
+  publicProfilePictureWrapper: {
+    alignItems: 'center',
+    position: 'absolute',
+    bottom: 585,
   },
   publicName: {
     fontSize: 24,
@@ -502,6 +518,7 @@ const styles = StyleSheet.create({
     color: '#333',
     textAlign: 'center',
     marginBottom: 8,
+    marginTop: 60,
   },
   publicUserName: {
     fontSize: 18,
