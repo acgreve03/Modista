@@ -1,14 +1,16 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, TextInput, Image, StyleSheet, TouchableOpacity, Modal, ScrollView } from 'react-native';
 import { FontAwesome } from '@expo/vector-icons';
 import { collection, getDocs, query, where, doc, getDoc, updateDoc, addDoc, serverTimestamp } from 'firebase/firestore';
 import { db, auth } from '../firebaseConfig';
+import { useNavigation } from '@react-navigation/native';
 
 /**
  * SearchScreen Component
  * A screen for browsing and searching for outfit inspirations with advanced recommendations.
  */
 export default function SearchScreen() {
+  const navigation = useNavigation();
   const [searchQuery, setSearchQuery] = useState('');
   const [isSearching, setIsSearching] = useState(false);
   const [userResults, setUserResults] = useState([]);
@@ -24,13 +26,71 @@ export default function SearchScreen() {
     { id: 3, name: 'Chic Skirts', category: 'Classy', views: 150, image: 'https://via.placeholder.com/150' },
     { id: 4, name: 'Winter Coat', category: 'Warm', views: 300, image: 'https://via.placeholder.com/150' },
   ]);
+  const [recommendedPosts, setRecommendedPosts] = useState([]);
 
-    // Mock data for recent searches and collaborative filtering
-    const recentSearches = ['Casual', 'Warm', 'Sweater'];
-    const collaborativeData = {
-      Casual: ['Sweater Weather', 'Winter Coat'],
-      Warm: ['Autumn Outfit', 'Chic Skirts'],
-    };
+  // Add this useEffect to fetch recommendations when component mounts
+  useEffect(() => {
+    fetchRecommendedPosts();
+  }, []);
+
+  const fetchRecommendedPosts = async () => {
+    try {
+      const user = auth.currentUser;
+      if (!user) return;
+
+      // Get user's interests and recent activity
+      const userRef = doc(db, 'users', user.uid);
+      const userDoc = await getDoc(userRef);
+      const userData = userDoc.data();
+      
+      // Get posts from the main posts collection
+      const postsRef = collection(db, 'posts');
+      const postsSnapshot = await getDocs(postsRef);
+      const allPosts = postsSnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }));
+
+      // Score and sort posts based on user preferences
+      const scoredPosts = allPosts.map(post => ({
+        ...post,
+        score: calculateRecommendationScore(post, userData)
+      }))
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 10); // Get top 10 recommendations
+
+      setRecommendedPosts(scoredPosts);
+    } catch (error) {
+      console.error('Error fetching recommendations:', error);
+    }
+  };
+
+  const calculateRecommendationScore = (post, userData) => {
+    let score = 0;
+
+    // Base popularity score
+    score += (post.likes?.length || 0) * 0.5;
+    score += (post.saves?.length || 0) * 1;
+    score += (post.views || 0) * 0.1;
+
+    // Recency boost (newer posts get higher score)
+    const daysSincePosted = (Date.now() - post.createdAt?.toDate()) / (1000 * 60 * 60 * 24);
+    if (daysSincePosted < 7) {
+      score += (7 - daysSincePosted);
+    }
+
+    // If user follows the post creator
+    if (userData.following?.includes(post.userId)) {
+      score += 10;
+    }
+
+    // If post matches user's style preferences
+    if (userData.stylePreferences?.some(style => post.tags?.includes(style))) {
+      score += 5;
+    }
+
+    return score;
+  };
 
   const handleSearch = async (text) => {
     setSearchQuery(text);
@@ -87,27 +147,34 @@ export default function SearchScreen() {
   };
 
   const searchOutfits = async (searchText) => {
-    if (searchText.trim() === '') {
-      return getPopularOutfits();
+    if (searchText.trim() === '') return [];
+
+    try {
+        const postsRef = collection(db, 'posts');
+        const querySnapshot = await getDocs(postsRef);
+        const posts = querySnapshot.docs
+            .map(doc => ({
+                id: doc.id,
+                ...doc.data()
+            }))
+            .filter(post => {
+                const searchLower = searchText.toLowerCase();
+                const caption = post.caption?.toLowerCase() || '';
+                const description = post.description?.toLowerCase() || '';
+                const tags = post.tags?.map(tag => tag.toLowerCase()) || [];
+                
+                // Check if caption or description starts with the search text
+                return caption.startsWith(searchLower) || 
+                       description.startsWith(searchLower) ||
+                       tags.some(tag => tag.startsWith(searchLower));
+            });
+
+        console.log('Found posts:', posts); // Debug log
+        return posts;
+    } catch (error) {
+        console.error('Error searching posts:', error);
+        return [];
     }
-
-    const outfitsRef = collection(db, 'outfits');
-    const q = query(outfitsRef);
-    const querySnapshot = await getDocs(q);
-    const allOutfits = querySnapshot.docs.map(doc => ({
-      id: doc.id,
-      ...doc.data()
-    }));
-
-    // Score and filter outfits
-    const scoredOutfits = allOutfits.map(outfit => ({
-      ...outfit,
-      score: calculateOutfitScore(outfit, searchText)
-    }))
-    .filter(outfit => outfit.score > 0)
-    .sort((a, b) => b.score - a.score);
-
-    return scoredOutfits;
   };
 
   const calculateOutfitScore = (outfit, query) => {
@@ -292,13 +359,29 @@ export default function SearchScreen() {
             
             {results.length > 0 && (
                 <View>
-                    <Text style={styles.sectionTitle}>Outfits</Text>
+                    <Text style={styles.sectionTitle}>Posts</Text>
                     <View style={styles.grid}>
-                        {results.map((outfit) => (
-                            <View key={outfit.id} style={styles.outfitCard}>
-                                <Image source={{ uri: outfit.image }} style={styles.outfitImage} />
-                                <Text style={styles.outfitName}>{outfit.name}</Text>
-                            </View>
+                        {results.map((post) => (
+                            <TouchableOpacity 
+                                key={post.id} 
+                                style={styles.postCard}
+                                onPress={() => {
+                                    navigation.getParent()?.navigate('PostDetailsScreen', { postId: post.id });
+                                }}
+                            >
+                                <Image 
+                                    source={{ uri: post.itemImage || post.imageUrl || 'https://via.placeholder.com/150' }}
+                                    style={styles.postImage} 
+                                />
+                                <View style={styles.postInfo}>
+                                    <Text style={styles.postTitle} numberOfLines={1}>
+                                        {post.caption || 'Outfit Post'}
+                                    </Text>
+                                    <Text style={styles.postStats}>
+                                        {post.likes?.length || 0} likes • {post.saves?.length || 0} saves
+                                    </Text>
+                                </View>
+                            </TouchableOpacity>
                         ))}
                     </View>
                 </View>
@@ -310,9 +393,37 @@ export default function SearchScreen() {
           </View>
         )
       ) : (
-        <>
+        <ScrollView>
+          <Text style={styles.sectionTitle}>Recommended For You</Text>
+          <View style={styles.grid}>
+            {recommendedPosts.map((post) => (
+              <TouchableOpacity 
+                key={post.id} 
+                style={styles.postCard}
+                onPress={() => {
+                  console.log('Navigating to post:', post.id);
+                  navigation.getParent()?.navigate('PostDetailsScreen', { postId: post.id });
+                }}
+              >
+                <Image 
+                  source={{ uri: post.itemImage || post.imageUrl || 'https://via.placeholder.com/150' }}
+                  style={styles.postImage} 
+                />
+                <View style={styles.postInfo}>
+                  <Text style={styles.postTitle} numberOfLines={1}>
+                    {post.caption || 'Outfit Post'}
+                  </Text>
+                  <Text style={styles.postStats}>
+                    {post.likes?.length || 0} likes • {post.saves?.length || 0} saves
+                  </Text>
+                </View>
+              </TouchableOpacity>
+            ))}
+          </View>
+
+          <Text style={styles.sectionTitle}>Popular Categories</Text>
           <View style={styles.tagContainer}>
-            {['Casual', 'Classy', 'Comfy', 'Warm'].map((tag) => (
+            {['Casual', 'Formal', 'Streetwear', 'Vintage'].map((tag) => (
               <TouchableOpacity
                 key={tag}
                 style={styles.tag}
@@ -322,16 +433,7 @@ export default function SearchScreen() {
               </TouchableOpacity>
             ))}
           </View>
-          <Text style={styles.sectionTitle}>Popular Now</Text>
-          <View style={styles.grid}>
-            {dataToDisplay.map((outfit) => (
-              <View key={outfit.id} style={styles.outfitCard}>
-                <Image source={{ uri: outfit.image }} style={styles.outfitImage} />
-                <Text style={styles.outfitName}>{outfit.name}</Text>
-              </View>
-            ))}
-          </View>
-        </>
+        </ScrollView>
       )}
 
       <Modal visible={isModalVisible} animationType="slide" onRequestClose={() => setIsModalVisible(false)}>
@@ -580,4 +682,34 @@ const styles = StyleSheet.create({
     fontSize: 16,
     textAlign: 'center'
   },
+  postCard: {
+    width: '45%',
+    marginBottom: 20,
+    borderRadius: 12,
+    backgroundColor: '#fff',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  postImage: {
+    width: '100%',
+    height: 200,
+    borderTopLeftRadius: 12,
+    borderTopRightRadius: 12,
+    resizeMode: 'cover',
+  },
+  postInfo: {
+    padding: 10,
+  },
+  postTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    marginBottom: 4,
+  },
+  postStats: {
+    fontSize: 12,
+    color: '#666',
+  }
 });
