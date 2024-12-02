@@ -168,9 +168,13 @@ export default function SearchScreen() {
           
           {selectedUserProfile && (
             <View style={styles.publicProfileContainer}>
-              <Image 
-                source={{ uri: selectedUserProfile?.profilePictureUrl || 'https://via.placeholder.com/150'}} 
-                style={styles.publicProfilePicture}
+              <View style={styles.publicProfilePictureWrapper}>
+                <Image 
+                  source={{ uri: selectedUserProfile?.profilePictureUrl || 'https://via.placeholder.com/150'}} 
+                  style={styles.publicProfilePicture}
+                />
+              </View>
+              <Image source={{uri: selectedUserProfile?.headerImageUrl || 'https://via.placeholder.com/600x200'}} style={styles.publicHeaderImage}
               />
               <Text style={styles.publicName}>
                 {`${selectedUserProfile?.firstName} ${selectedUserProfile?.lastName}`}
@@ -325,13 +329,26 @@ const styles = StyleSheet.create({
     paddingTop: 50,
     backgroundColor: 'white',
   },
+  publicProfilePictureWrapper: {
+    alignItems: 'center',
+    position: 'absolute',
+    bottom: 585,
+  },
+  publicHeaderImage: {
+    width: '100%',
+    height: 130,
+    resizeMode: 'cover',
+    position: 'relative',
+    top: -40,
+  },
   publicProfilePicture: {
     width: 100,
     height: 100,
     borderRadius: 60,
     borderWidth: 2,
-    borderColor: '#ddd',
+    borderColor: 'white',
     marginBottom: 15,
+    zIndex: 1,
   },
   publicName: {
     fontSize: 24,
@@ -340,6 +357,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginBottom: 8,
     fontFamily: 'Helvetica',
+    marginTop: 20,
   },
   publicUserName: {
     fontSize: 18,
