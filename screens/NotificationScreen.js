@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, FlatList, Image, StyleSheet, TouchableOpacity, Alert } from 'react-native';
+import { View, Text, FlatList, Image, StyleSheet, TouchableOpacity, Alert, Modal, ScrollView } from 'react-native';
 import { getFirestore, collection, query, where, orderBy, onSnapshot, addDoc, serverTimestamp, getDoc, doc, updateDoc } from 'firebase/firestore';
 import { getAuth } from 'firebase/auth';
 import { useNavigation } from '@react-navigation/native';
@@ -7,7 +7,7 @@ import { useNavigation } from '@react-navigation/native';
 const auth = getAuth();
 const db = getFirestore();
 
-const NotificationItem = ({ notification, onFollowBack, currentUserFollowing }) => {
+const NotificationItem = ({ notification, onFollowBack, currentUserFollowing, onUserPress }) => {
   const navigation = useNavigation();
   const isFollowNotification = notification.type === 'follow';
   const alreadyFollowing = currentUserFollowing.includes(notification.senderId);
@@ -29,37 +29,42 @@ const NotificationItem = ({ notification, onFollowBack, currentUserFollowing }) 
   };
 
   return (
-    <TouchableOpacity 
-      style={styles.notificationContainer}
-      onPress={() => {
-        if (showPostImage) {
-          navigation.navigate('PostDetailsScreen', { postId: notification.postId });
-        }
-      }}
-      disabled={isFollowNotification}
-    >
-      <Image 
-        source={{ uri: notification.senderProfilePic || 'https://via.placeholder.com/40' }}
-        style={styles.avatar}
-      />
+    <View style={styles.notificationContainer}>
+      <TouchableOpacity onPress={() => onUserPress(notification.senderId)}>
+        <Image 
+          source={{ uri: notification.senderProfilePic || 'https://via.placeholder.com/40' }}
+          style={styles.avatar}
+        />
+      </TouchableOpacity>
+
       <View style={styles.notificationTextContainer}>
         <Text style={styles.notificationText}>
-          <Text style={styles.username}>{notification.senderName}</Text>
-          {' '}{getNotificationText()}
+          <Text 
+            style={styles.username} 
+            onPress={() => onUserPress(notification.senderId)}
+          >
+            {notification.senderName}
+          </Text>
+          {' '}{getNotificationText(notification)}
         </Text>
         <Text style={styles.timestamp}>
           {getRelativeTime(notification.createdAt?.toDate())}
         </Text>
       </View>
+
       {showPostImage && notification.postImage && (
-        <View style={styles.postImageContainer}>
+        <TouchableOpacity 
+          style={styles.postImageContainer}
+          onPress={() => navigation.navigate('PostDetailsScreen', { postId: notification.postId })}
+        >
           <Image 
             source={{ uri: notification.postImage }}
             style={styles.postThumbnail}
             resizeMode="cover"
           />
-        </View>
+        </TouchableOpacity>
       )}
+
       {isFollowNotification && !alreadyFollowing && (
         <TouchableOpacity 
           style={styles.followButton}
@@ -68,7 +73,7 @@ const NotificationItem = ({ notification, onFollowBack, currentUserFollowing }) 
           <Text style={styles.followButtonText}>Follow Back</Text>
         </TouchableOpacity>
       )}
-    </TouchableOpacity>
+    </View>
   );
 };
 
@@ -77,6 +82,9 @@ const NotificationScreen = () => {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [currentUserFollowing, setCurrentUserFollowing] = useState([]);
+  const [selectedUserProfile, setSelectedUserProfile] = useState(null);
+  const [isModalVisible, setIsModalVisible] = useState(false);
+  const [isFollowing, setIsFollowing] = useState(false);
 
   const fetchCurrentUserFollowing = async () => {
     try {
@@ -190,6 +198,83 @@ const NotificationScreen = () => {
     }
   };
 
+  const handleUserPress = async (userId) => {
+    console.log('Opening profile for user:', userId); // Debug log
+    try {
+      const userRef = doc(db, 'users', userId);
+      const docSnap = await getDoc(userRef);
+      
+      if (docSnap.exists()) {
+        const userData = docSnap.data();
+        console.log('Fetched user data:', userData); // Debug log
+        setSelectedUserProfile({ id: userId, ...userData });
+        setIsFollowing(currentUserFollowing.includes(userId));
+        setIsModalVisible(true);
+      }
+    } catch (error) {
+      console.error('Error fetching user profile:', error);
+    }
+  };
+
+  const handleFollowToggle = async (userId) => {
+    try {
+      const currentUserRef = doc(db, 'users', auth.currentUser.uid);
+      const targetUserRef = doc(db, 'users', userId);
+      
+      const [currentUserSnap, targetUserSnap] = await Promise.all([
+        getDoc(currentUserRef),
+        getDoc(targetUserRef)
+      ]);
+
+      if (currentUserSnap.exists() && targetUserSnap.exists()) {
+        const currentUserData = currentUserSnap.data();
+        const targetUserData = targetUserSnap.data();
+        const currentFollowing = currentUserData.following || [];
+        const targetFollowers = targetUserData.followers || [];
+
+        if (currentFollowing.includes(userId)) {
+          // Unfollow logic
+          const updatedFollowing = currentFollowing.filter(id => id !== userId);
+          const updatedFollowers = targetFollowers.filter(id => id !== auth.currentUser.uid);
+
+          await Promise.all([
+            updateDoc(currentUserRef, { following: updatedFollowing }),
+            updateDoc(targetUserRef, { followers: updatedFollowers })
+          ]);
+
+          setCurrentUserFollowing(updatedFollowing);
+          setIsFollowing(false);
+        } else {
+          // Follow logic
+          const updatedFollowing = [...currentFollowing, userId];
+          const updatedFollowers = [...targetFollowers, auth.currentUser.uid];
+
+          await Promise.all([
+            updateDoc(currentUserRef, { following: updatedFollowing }),
+            updateDoc(targetUserRef, { followers: updatedFollowers })
+          ]);
+
+          // Create follow notification
+          const notificationData = {
+            type: 'follow',
+            senderId: auth.currentUser.uid,
+            recipientId: userId,
+            senderName: currentUserData.userName,
+            senderProfilePic: currentUserData.profilePictureUrl,
+            createdAt: serverTimestamp()
+          };
+
+          await addDoc(collection(db, 'notifications'), notificationData);
+          setCurrentUserFollowing(updatedFollowing);
+          setIsFollowing(true);
+        }
+      }
+    } catch (error) {
+      console.error('Error in handleFollowToggle:', error);
+      Alert.alert('Error', 'Failed to update follow status');
+    }
+  };
+
   if (loading) {
     return (
       <View style={styles.container}>
@@ -209,18 +294,67 @@ const NotificationScreen = () => {
           data={notifications}
           renderItem={({item}) => (
             <NotificationItem 
-              key={item.id}
-              notification={item} 
+              notification={item}
               onFollowBack={handleFollowBack}
               currentUserFollowing={currentUserFollowing}
+              onUserPress={handleUserPress}
             />
           )}
-          keyExtractor={item => item.id.toString()}
-          showsVerticalScrollIndicator={false}
+          keyExtractor={item => item.id}
           refreshing={refreshing}
           onRefresh={onRefresh}
         />
       )}
+
+      {/* User Profile Modal */}
+      <Modal 
+        visible={isModalVisible} 
+        animationType="slide" 
+        onRequestClose={() => setIsModalVisible(false)}
+      >
+        <View style={styles.modalContent}>
+          <TouchableOpacity 
+            onPress={() => setIsModalVisible(false)} 
+            style={styles.backArrowContainer}
+          >
+            <Text style={styles.backArrowText}>←</Text>
+          </TouchableOpacity>
+          
+          {selectedUserProfile && (
+            <ScrollView contentContainerStyle={styles.publicProfileContainer}>
+              <Image 
+                source={{ uri: selectedUserProfile.profilePictureUrl || 'https://via.placeholder.com/150' }}
+                style={styles.publicProfilePicture}
+              />
+              <Text style={styles.publicName}>
+                {selectedUserProfile.firstName} {selectedUserProfile.lastName}
+              </Text>
+              <Text style={styles.publicUserName}>{selectedUserProfile.userName}</Text>
+              <Text style={styles.publicBio}>{selectedUserProfile.bio}</Text>
+
+              <View style={styles.stats}>
+                <Text style={styles.stat}>
+                  {selectedUserProfile.followers?.length || 0} Followers
+                </Text>
+                <Text style={styles.stat}>
+                  {selectedUserProfile.following?.length || 0} Following
+                </Text>
+              </View>
+
+              {selectedUserProfile.id !== auth.currentUser?.uid && (
+                <TouchableOpacity 
+                  style={[styles.followButton, isFollowing && styles.followingButton]}
+                  onPress={() => handleFollowToggle(selectedUserProfile.id)}
+                >
+                  <Text style={styles.followButtonText}>
+                    {isFollowing ? 'Following' : 'Follow'}
+                  </Text>
+                </TouchableOpacity>
+              )}
+            </ScrollView>
+          )}
+        </View>
+      </Modal>
     </View>
   );
 };
@@ -267,6 +401,7 @@ const styles = StyleSheet.create({
   username: {
     fontWeight: '600',
     color: '#000',
+    textDecorationLine: 'none', // Remove default underline
   },
   timestamp: {
     color: '#666',
@@ -307,6 +442,64 @@ const styles = StyleSheet.create({
     width: '100%',
     height: '100%',
     borderRadius: 5,
+  },
+  modalContent: {
+    flex: 1,
+    backgroundColor: 'white',
+    padding: 20,
+  },
+  backArrowContainer: {
+    padding: 10,
+  },
+  backArrowText: {
+    fontSize: 24,
+    color: '#333',
+  },
+  publicProfileContainer: {
+    alignItems: 'center',
+    paddingTop: 20,
+  },
+  publicProfilePicture: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    marginBottom: 15,
+  },
+  publicName: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    marginBottom: 5,
+  },
+  publicUserName: {
+    fontSize: 16,
+    color: '#666',
+    marginBottom: 10,
+  },
+  publicBio: {
+    textAlign: 'center',
+    marginBottom: 20,
+  },
+  stats: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    width: '100%',
+    marginBottom: 20,
+  },
+  stat: {
+    marginHorizontal: 20,
+  },
+  followButton: {
+    backgroundColor: 'purple',
+    paddingHorizontal: 30,
+    paddingVertical: 10,
+    borderRadius: 20,
+  },
+  followingButton: {
+    backgroundColor: '#666',
+  },
+  followButtonText: {
+    color: 'white',
+    fontSize: 16,
   },
 });
 

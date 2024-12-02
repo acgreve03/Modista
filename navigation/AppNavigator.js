@@ -114,6 +114,35 @@ function MainTabs({navigation}) {
 // Create the Stack Navigator for Welcome, Login, and SignUp screens
 const Stack = createStackNavigator();
 
+function ProfileStack() {
+  return (
+    <Stack.Navigator>
+      <Stack.Screen 
+        name="Profile" 
+        component={UserProfile} 
+        options={{ headerShown: false }}
+      />
+      <Stack.Screen 
+        name="UserProfile"
+        component={UserProfile}
+        options={({ route }) => ({
+          title: route.params?.username || 'Profile',
+          headerBackTitle: 'Back'
+        })}
+      />
+      <Stack.Screen 
+        name="ProfileEdit" 
+        component={ProfileEdit}
+        options={{
+          headerTitle: 'Edit Profile',
+          headerBackTitle: 'Back'
+        }}
+      />
+      {/* ... other screens ... */}
+    </Stack.Navigator>
+  );
+}
+
 function App() {
 
   return (
