@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, Image, TouchableOpacity, ActivityIndicator, ScrollView, Modal, Button, FlatList } from 'react-native';
-import Outfits from './Outfits';
-import Closet from './Closet';
-import Saved from './Saved';
-import { doc, getDoc } from 'firebase/firestore';
+import { View, Text, StyleSheet, Image, TouchableOpacity, ActivityIndicator, ScrollView, Modal, FlatList } from 'react-native';
+import Outfits from './Outfits'; // Import the OutfitsGrid component
+import Closet from './Closet'; // Import the Closet component
+import Saved from './Saved'; // Import the Closet component
+import { doc, getDoc, onSnapshot, updateDoc } from 'firebase/firestore';
 import { db } from '../../firebaseConfig';
 import { auth } from '../../firebaseConfig';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -18,6 +18,7 @@ const UserProfile = ({navigation}) => {
   const [selectedUserProfile, setSelectedUserProfile] = useState(null);
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [modalType, setModalType] = useState('followers');
+  const [isFollowing, setIsFollowing] = useState(false);
 
   useFocusEffect(
     React.useCallback(() => {
@@ -92,10 +93,94 @@ const UserProfile = ({navigation}) => {
     }
   };
 
+  const handleFollowToggle = async (userId) => {
+    try {
+      const currentUserRef = doc(db, 'users', auth.currentUser.uid);
+      const targetUserRef = doc(db, 'users', userId);
+      
+      const currentUserSnap = await getDoc(currentUserRef);
+      const targetUserSnap = await getDoc(targetUserRef);
+
+      if (currentUserSnap.exists() && targetUserSnap.exists()) {
+        const currentUserData = currentUserSnap.data();
+        const targetUserData = targetUserSnap.data();
+
+        const currentFollowing = currentUserData.following || [];
+        const targetFollowers = targetUserData.followers || [];
+
+        //Unfollow logic
+        if (currentFollowing.includes(userId)) {
+          const updatedFollowing = currentFollowing.filter(id => id !== userId);
+          const updatedFollowers = targetFollowers.filter(id => id !== auth.currentUser.uid);
+
+          await updateDoc(currentUserRef, { following: updatedFollowing});
+          await updateDoc(targetUserRef, { followers: updatedFollowers});
+
+          setSelectedUserProfile(prevState => ({
+            ...prevState,
+            followers: updatedFollowers,
+          }));
+          setIsFollowing(false);
+        } else {
+          //Follow logic
+          const updatedFollowing = [...currentFollowing, userId];
+          const updatedFollowers = [...targetFollowers, auth.currentUser.uid];
+          
+          await updateDoc(currentUserRef, { following: updatedFollowing});
+          await updateDoc(targetUserRef, { followers: updatedFollowers});
+
+          setSelectedUserProfile(prevState => ({
+            ...prevState,
+            followers: updatedFollowers,
+          }));
+          setIsFollowing(true);
+        }
+        //Refresh the lists
+        await fetchFollowers();
+        await fetchFollowing();
+      }
+    } catch (error) {
+      console.error("Error updating follow state: ", error);
+    }
+  };
+
+  useEffect(() => {
+    const unsubscribeFollowers = onSnapshot(
+      doc(db, 'users', auth.currentUser.uid),
+      (docSnap) => {
+        if (docSnap.exists()) {
+          const followers = docSnap.data().followers || [];
+          setFollowersList(followers);
+        }
+      },
+      (error) => console.error("Error fetching real-time followers: ", error)
+    );
+
+    const unsubscribeFollowing = onSnapshot (
+      doc(db, 'users', auth.currentUser.uid),
+      (docSnap) => {
+        if (docSnap.exists()) {
+          const following = docSnap.data().following || [];
+          setFollowingList(following);
+        }
+      },
+      (error) => console.error("Error fetching real-time fllowing: ", error)
+    );
+
+    return () => {
+      unsubscribeFollowers();
+      unsubscribeFollowing();
+    };
+  }, []);
+
+  //Open selected user's profile
   const openUserProfileModal = async (userId) => {
     const userRef = doc(db, 'users', userId);
     const docSnap = await getDoc(userRef);
     if (docSnap.exists()) {
+      const targetUserData = docSnap.data();
+      const isUserFollowing = targetUserData.followers?.includes(auth.currentUser.uid);
+      setIsFollowing(isUserFollowing);
       setSelectedUserProfile({ id: userId, ...docSnap.data()});
       setIsModalVisible(true);
     }
@@ -208,7 +293,10 @@ const UserProfile = ({navigation}) => {
               </Text>
             </View>
               {selectedUserProfile ? (
-                <PublicProfile userProfile={selectedUserProfile} />
+                <PublicProfile 
+                  userProfile={selectedUserProfile}
+                  isFollowing={isFollowing}
+                  handleFollowToggle={handleFollowToggle} />
               ) : (
                 <FlatList
                   data={modalType === 'followers' ? followersList : followingList}
@@ -237,7 +325,7 @@ const UserProfile = ({navigation}) => {
   );
 };
 
-const PublicProfile = ({ userProfile}) => (
+const PublicProfile = ({ userProfile, isFollowing, handleFollowToggle}) => (
   <View style={styles.publicProfileContainer}>
     <Image source={{ uri: userProfile?.profilePictureUrl || 'https://via.placeholder.com/150'}} style={styles.publicProfilePicture}
     />
@@ -249,6 +337,10 @@ const PublicProfile = ({ userProfile}) => (
       <Text style={styles.stat}>{userProfile?.followers?.length || 0} Followers</Text>
       <Text style={styles.stat}>{userProfile?.following?.length || 0} Following</Text>
     </View>
+
+    <TouchableOpacity style={[styles.followButton, isFollowing && styles.followingButton]} onPress={() => handleFollowToggle(userProfile.id)}>
+      <Text style={styles.followButtonText}>{isFollowing ? 'Unfollow' : 'Follow'}</Text>
+    </TouchableOpacity>
   </View>
 );
 
@@ -424,44 +516,20 @@ const styles = StyleSheet.create({
     marginBottom: 0,
     paddingHorizontal: 20,
   },
-  profilePictureContainer: {
-    width: '100%',
-    alignItems: 'center',
-    justifyContent: 'center',
-    position: 'relative',
-  },
-  profileButtons: {
-    position: 'absolute',
-    right: '-30%',
-    top: '30%',
-    alignItems: 'center',
-  },
-  iconButton: {
-    backgroundColor: 'white',
-    padding: 8,
-    borderRadius: 20,
-    shadowColor: '#000',
-    shadowOffset: {
-        width: 0,
-        height: 2,
-    },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-    elevation: 5,
-  },
-  savedPostsButton: {
-    backgroundColor: 'purple',
+  followButton: {
+    backgroundColor: '#007bff',
     padding: 10,
-    borderRadius: 20,
+    borderRadius: 5,
     marginTop: 10,
-    width: '50%',
-    alignSelf: 'center'
   },
-  buttonText: {
+  followingButton: {
+    backgroundColor: '#6c757d',
+  },
+  followButtonText: {
     color: 'white',
-    textAlign: 'center',
-    fontWeight: 'bold'
-  }
+    fontSize: 16,
+    textAlign: 'center'
+  },
 });
 
 export default UserProfile;
