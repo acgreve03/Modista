@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TextInput, Image, StyleSheet, TouchableOpacity, Modal, ScrollView } from 'react-native';
+import { View, Text, TextInput, Image, StyleSheet, TouchableOpacity, Modal, ScrollView, FlatList } from 'react-native';
 import { FontAwesome } from '@expo/vector-icons';
 import { collection, getDocs, query, where, doc, getDoc, updateDoc, addDoc, serverTimestamp } from 'firebase/firestore';
 import { db, auth } from '../firebaseConfig';
@@ -18,6 +18,7 @@ export default function SearchScreen() {
   const [selectedUserProfile, setSelectedUserProfile] = useState(null);
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [isFollowing, setIsFollowing] = useState(false);
+  const [posts, setPosts] = useState([]);
   const [results, setResults] = useState([]);
   const [outfits, setOutfits] = useState([
     // Mock data for outfits
@@ -321,6 +322,28 @@ export default function SearchScreen() {
     }
   };
 
+   //Fetch posts for the selected user
+   const fetchUserPosts = async (userId) => {
+    try {
+      const postsRef = collection(db, 'posts');
+      const q = query(postsRef, where('userId', '==', userId));
+      const querySnapshot = await getDocs(q);
+      const postsData = querySnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }));
+      setPosts(postsData);
+    } catch (error) {
+      console.error("Error fetching posts:", error);
+    }
+    };
+  
+  useEffect(() => {
+    if (selectedUserProfile) {
+      fetchUserPosts(selectedUserProfile.id);
+    }
+    }, [selectedUserProfile]);
+
   return (
     <View style={styles.container}>
       <View style={styles.searchContainer}>
@@ -475,6 +498,35 @@ export default function SearchScreen() {
                   {isFollowing ? 'Unfollow' : 'Follow'}
                 </Text>
               </TouchableOpacity>
+
+              <View style={styles.postsContainer}>
+                <Text style={styles.postsTitle}>Posts</Text>
+                <FlatList
+                  data={posts}
+                  renderItem={({ item }) => (
+                    <TouchableOpacity
+                      onPress={() => {
+                        setIsModalVisible(false);
+                        setSelectedUserProfile(null);
+                        setTimeout(() => {
+                          navigation.navigate('PostDetailsScreen', {
+                            postId: item.id, userId: item.userId
+                          });
+                        }, 100);
+                      }}
+                    >
+                      <Image source={{ uri: item.itemImage }} style={styles.postImage} />
+                    </TouchableOpacity>
+                  )}
+                    keyExtractor={(item) => item.id}
+                    numColumns={2}
+                    contentContainerStyle={styles.grid}
+                    columnWrapperStyle={{
+                      justifyContent: 'flex-start',
+                    }}
+                    showsVerticalScrollIndicator={false}
+                  />
+              </View>
             </View>
           )}
         </View>
@@ -682,34 +734,30 @@ const styles = StyleSheet.create({
     fontSize: 16,
     textAlign: 'center'
   },
-  postCard: {
-    width: '45%',
-    marginBottom: 20,
-    borderRadius: 12,
+  postsContainer: {
     backgroundColor: '#fff',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    flex: 1,
+    alignItems: 'flex-start',
+    margin: 5,
+  },
+  postsTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginBottom: 10,
+    textAlign: 'left',
   },
   postImage: {
-    width: '100%',
-    height: 200,
-    borderTopLeftRadius: 12,
-    borderTopRightRadius: 12,
+    borderRadius: 10,
+    marginBottom: 10,
+    width: 140,
+    height: 140,
     resizeMode: 'cover',
+    alignSelf: 'flex-start',
   },
-  postInfo: {
-    padding: 10,
+  grid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'flex-start',
+    gap: 10,
   },
-  postTitle: {
-    fontSize: 14,
-    fontWeight: '600',
-    marginBottom: 4,
-  },
-  postStats: {
-    fontSize: 12,
-    color: '#666',
-  }
 });
