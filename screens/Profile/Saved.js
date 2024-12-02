@@ -123,36 +123,31 @@ const Saved = () => {
 
     return (
         <View style={styles.container}>
-            <Text style={styles.title}>Saved Outfits</Text>
-            <FlatList
-                data={savedOutfits}
-                renderItem={renderItem}
-                keyExtractor={(item) => item.id}
-                numColumns={2} // Number of columns for the grid
-                columnWrapperStyle={styles.columnWrapper} // Ensures proper spacing between columns
-                showsVerticalScrollIndicator={false} // Hide vertical scroll indicator if desired
-                //contentContainerStyle={styles.grid}
-                ListEmptyComponent={<Text style={styles.emptyText}>No saved outfits found.</Text>}
-            />
-            <ScrollView contentContainerStyle={styles.grid}>
-                {savedOutfits.length > 0 ? (
-                    savedOutfits.map((outfit) => (
-                        <TouchableOpacity
-                            key={outfit.id}
-                            onPress={() => handleOutfitClick(outfit)}
-                            style={styles.outfitContainer}
-                        >
-                            <Image
-                                source={{ uri: outfit.outfitImageUrl }}
-                                style={styles.outfitImage}
-                            />
-                        </TouchableOpacity>
-                    ))
-                ) : (
-                    <Text style={styles.emptyText}>No saved outfits found.</Text>
-                )}
-            </ScrollView>
+        <Text style={styles.title}>Saved Outfits</Text>
 
+        {/* Grid for saved outfits */}
+        <View style={styles.grid}>
+            {savedOutfits.length > 0 ? (
+                <ScrollView contentContainerStyle={styles.grid}>
+                {savedOutfits.map((outfit) => (
+                    <TouchableOpacity
+                        key={outfit.id}
+                        onPress={() => handleOutfitClick(outfit)}
+                        style={styles.outfitContainer}
+                    >
+                        <Image
+                            source={{ uri: outfit.outfitImageUrl }}
+                            style={styles.outfitImage}
+                        />
+                    </TouchableOpacity>
+                ))}
+            </ScrollView>
+        ) : (
+            <View style={styles.emptyContainer}>
+                <Text style={styles.emptyText}>No saved outfits found.</Text>
+            </View>
+        )}
+        </View>
             {selectedOutfit && (
                 <Modal
                     visible={true}
@@ -161,7 +156,7 @@ const Saved = () => {
                     transparent={false}
                 >
                     
-                    
+    
 
                     <TouchableOpacity style={styles.backButton} onPress={closeModal}>
                         <MaterialCommunityIcons name="arrow-left" size={24} color="black" />
@@ -244,7 +239,6 @@ const Saved = () => {
                             
                         </View>
 
-                        
 
                         <View style={styles.buttonContainer}>
                         <TouchableOpacity style={styles.postButton} onPress={() => console.log('Post Outfit')}>
@@ -261,33 +255,61 @@ const Saved = () => {
 
 const styles = StyleSheet.create({
     container: {
-        flex: 1,
-        backgroundColor: 'white',
-        padding: 10,  
+        width: '100%', // Keeps full width
+        height: 500,   // Adjust to a fixed height
+        backgroundColor: '#fff',
+        padding: 16,
+        
+       
     },
     title: {
         fontSize: 24,
         fontWeight: 'bold',
-        marginBottom: 10,
-        textAlign: 'center'
+        marginBottom: 16,
+        textAlign: 'center',
     },
     grid: {
         flexDirection: 'row',
         flexWrap: 'wrap',
-        justifyContent: 'space-between',
+        justifyContent: 'center',
     },
     outfitContainer: {
-        width: '45%', // Adjust container size for grid layout
-        aspectRatio: 0.85, // Change aspect ratio for Pinterest-style pins (e.g., 4:5 or 3:4)
-        marginBottom: 15, // Increased margin for better separation
-        borderRadius: 10,
-        borderWidth: 1, // Thin border around the container
-        borderColor: '#d3d3d3', // Light grey border for a subtle effect
-        backgroundColor: 'white', // Ensure the container background is white
-        padding: 10, // Padding inside the container
-        elevation: 2, // Add subtle shadow for a more lifted effect
- 
+        margin: 8,
+        width: 100, // Adjust size as needed
+        height: 150,
+        borderRadius: 8,
+        overflow: 'hidden',
+        borderRadius: 1
     },
+    outfitImage: {
+        width: '100%',
+        height: '100%',
+        resizeMode: 'cover',
+    },
+    emptyContainer: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    emptyText: {
+        fontSize: 18,
+        color: '#888',
+        textAlign: 'center',
+    },
+    
+    
+    // outfitContainer: {
+    //     width: '45%', // Adjust container size for grid layout
+    //     aspectRatio: 0.85, // Change aspect ratio for Pinterest-style pins (e.g., 4:5 or 3:4)
+    //     marginBottom: 15, // Increased margin for better separation
+    //     borderRadius: 10,
+    //     borderWidth: 1, // Thin border around the container
+    //     borderColor: '#d3d3d3', // Light grey border for a subtle effect
+    //     backgroundColor: 'white', // Ensure the container background is white
+    //     padding: 10, // Padding inside the container
+    //     elevation: 2, // Add subtle shadow for a more lifted effect
+ 
+    // },
     columnWrapper: {
         justifyContent: 'space-between',
       },

@@ -41,6 +41,21 @@ export default function AddToCloset({navigation}) {
       
     }, []);
 
+    useEffect(() => {
+      const analyzeImage = async () => {
+        if (closetItemUrl) {
+          try {
+            console.log("Analyzing image at URL: ", closetItemUrl);
+            await handleAnalyzeImage(closetItemUrl); // Assuming this function is async
+          } catch (error) {
+            console.error("Error analyzing image:", error);
+          }
+        }
+      };
+  
+      analyzeImage(); // Call analyzeImage (it will do nothing if closetItemUrl is null)
+    }, [closetItemUrl]); // This effect runs only when closetItemUrl changes
+    
     const handleAnalyzeImage = async () => {
       if (!closetItemUrl) {
         Alert.alert('No image selected');
@@ -139,14 +154,15 @@ export default function AddToCloset({navigation}) {
         if (!result.canceled) {
           const { uri } = result.assets[0];
           setClosetItemUrl(uri);
-          await handleAnalyzeImage();
+          //await handleAnalyzeImage();
         }
       } catch (error) {
         console.error('Error picking image:', error);
         alert('Error picking image. Try again');
       }
     };
-  
+    
+
     const pickImageFromCamera = async () => {
       try {
           setClosetItemUrl(null);
@@ -165,6 +181,8 @@ export default function AddToCloset({navigation}) {
         console.error('Error using camera:', error);
       }
     };
+
+    
   
     const uploadImage = async (uri) => {
       try {

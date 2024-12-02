@@ -23,6 +23,8 @@ const OutfitGenerateDisplay = () => {
     const [loading, setLoading] = useState(true); // Loading state
     const [userProfile, setUserProfile] = useState(null); // State for user profile
     const [modalVisible, setModalVisible] = useState(false);
+    const [outfitType, setOutfitType] = useState(null);  // Track whether it's a generated or surprise outfit
+
 
     const navigation = useNavigation();
 
@@ -83,6 +85,7 @@ const OutfitGenerateDisplay = () => {
     
             // Get the current position
             const location = await Location.getCurrentPositionAsync({});
+            console.log(location.coords.latitude,  location.coords.longitude)
             return { latitude: location.coords.latitude, longitude: location.coords.longitude };
         } catch (error) {
             console.error("Error getting user location:", error);
@@ -92,6 +95,7 @@ const OutfitGenerateDisplay = () => {
 
     const mapWeatherToSeason = (weatherData) => {
         const temp = weatherData.main.temp; // Temperature in Celsius
+        console.log(temp)
         const weatherDesc = weatherData.weather[0].description.toLowerCase();
     
         if (temp > 25 || weatherDesc.includes("hot")) {
@@ -113,8 +117,10 @@ const OutfitGenerateDisplay = () => {
         }
         const occasion = customOccasion || selectedType;
         //console.log(closetItems.length)
-        const outfit = generateOutfit(closetItems, occasion, selectedSeason); 
+
+        const outfit = generateOutfit(closetItems, selectedSeason, occasion); 
         setGeneratedOutfit(outfit);  // Save generated outfit to state
+        setOutfitType('generated');  // Set the type to "generated"
         setModalVisible(true); // Open the modal to display the outfit
     };
 
@@ -142,6 +148,7 @@ const OutfitGenerateDisplay = () => {
             // Step 4: Generate the outfit based on the determined season and random occasion
             const outfit = await generateOutfit(closetItems, season, randomOccasion);
             setGeneratedOutfit(outfit); // Save generated outfit to state
+            setOutfitType('surprise');  // Set the type to "surprise"
             setModalVisible(true);     // Open the modal to display the outfit
         } catch (error) {
             console.error("Error fetching weather or generating outfit:", error);
@@ -237,19 +244,12 @@ const OutfitGenerateDisplay = () => {
                 </View>
             )}
 
-            {/* Generate Outfit Button */}
-            <TouchableOpacity 
+           {/* Generate Outfit Button */}
+           <TouchableOpacity 
                 style={styles.generateButton}
                 onPress={handleGenerateOutfit}
             >
                 <Text style={styles.generateText}>Generate Outfit</Text>
-                 {/* Conditionally render OutfitDisplay if generatedOutfit exists */}
-                 {generatedOutfit && (
-                    <OutfitDisplay 
-                        generatedOutfit={generatedOutfit} 
-                        modalVisible={modalVisible} 
-                        setModalVisible={setModalVisible} 
-                    />)}
             </TouchableOpacity>
 
             {/* Surprise Me Button */}
@@ -258,14 +258,17 @@ const OutfitGenerateDisplay = () => {
                 onPress={handleSurpriseOutfit}
             >
                 <Text style={styles.surpriseText}>Surprise Me!</Text>
-                {/* Conditionally render OutfitDisplay if generatedOutfit exists */}
-                {generatedOutfit && (
-                    <OutfitDisplay 
-                        generatedOutfit={generatedOutfit} 
-                        modalVisible={modalVisible} 
-                        setModalVisible={setModalVisible} 
-                    />)}
             </TouchableOpacity>
+
+            {/* Only render OutfitDisplay if modalVisible is true and outfit has been generated */}
+            {generatedOutfit && modalVisible && (
+                <OutfitDisplay 
+                    generatedOutfit={generatedOutfit} 
+                    modalVisible={modalVisible} 
+                    setModalVisible={setModalVisible} 
+                    outfitType={outfitType}
+                />
+            )}
 
             
         </View>
@@ -292,6 +295,7 @@ const isValidUrl = (url) => {
 };
 
 export const generateOutfit = async (closetItems, season, occasion) => {
+    
     // Step 1: Filter items by season and/or occasion
     const filteredItems = closetItems.filter((item) => {
 
@@ -302,21 +306,47 @@ export const generateOutfit = async (closetItems, season, occasion) => {
         const hasValidSubcategory = item.subcategory !== undefined && item.subcategory !== null;
         const hasValidURL = item.imageUrl !== undefined && item.imageUrl !== null;
         
+        
+        
         // Check if the season or occasion exists and matches
         // Check if season and occasion are valid before matching
-        const matchesSeason = season ? (hasValidSeason && item.season === season) : true;
-        const matchesOccasion = occasion ? (hasValidOccasion && item.occasion === occasion) : true;
+        const matchesSeason = season ? (
+            hasValidSeason &&
+            (
+                item.season === "All" || // Matches if the season is "All"
+                item.season === season || // Matches if the season matches directly
+                (item.season === "Fall/Winter" && (season === "Fall" || season === "Winter")) ||  // Matches for "Fall/Winter" and either Fall or Winter
+                (item.season === "Spring/Summer" && (season === "Spring" || season === "Summer")) // Matches for "Fall/Winter" and either Fall or Winter
+
+
+            )
+        ) : false;
+        const matchesOccasion = occasion ? (hasValidOccasion && item.occasion === occasion) : false;
 
         
   
       // Log to debug the filtering process
-      //console.log(`Item: ${item.ItemID}, Season: ${item.season}, Occasion: ${item.occasion}, Matches Season: ${matchesSeason}, Matches Occasion: ${matchesOccasion}`);
+      console.log(`Item: ${item.ItemID}, Season: ${item.season}, Occasion: ${item.occasion}, Matches Season: ${matchesSeason}, Matches Occasion: ${matchesOccasion}`);
       //console.log(isValidUrl(item.imageUrl))
       // Return true if item matches the season or occasion, or both
-      return (matchesSeason || matchesOccasion) && hasValidCategory && hasValidSubcategory && isValidUrl(item.imageUrl); //&& hasValidURL;
+    if (season && occasion) {
+        // Both season and occasion specified
+        return matchesSeason && matchesOccasion && hasValidCategory && hasValidSubcategory && hasValidURL;
+    } else if (season) {
+        // Only season specified
+        return matchesSeason && hasValidCategory && hasValidSubcategory && hasValidURL;
+    } else if (occasion) {
+        // Only occasion specified
+        return matchesOccasion && hasValidCategory && hasValidSubcategory && hasValidURL;
+    } else {
+        // Neither season nor occasion specified - no matches
+        return false;
+    }
+
+      //return (matchesSeason && matchesOccasion) && hasValidCategory && hasValidSubcategory && hasValidURL; //&& isValidUrl(item.imageUrl);
     });
   
-    console.log(`Filtered items:`, filteredItems);
+    //console.log(`Filtered items:`, filteredItems);
   
     if (filteredItems.length === 0) {
       //console.log('No items available for this season and occasion.');
@@ -329,6 +359,9 @@ export const generateOutfit = async (closetItems, season, occasion) => {
     const shoes = filteredItems.filter(item => item.category === 'Shoes');
     const accessories = filteredItems.filter(item => item.category === 'Accessory');
   
+    console.log(tops?.season)
+    console.log(bottoms?.season)
+    console.log(shoes?.season)
     if (!tops.length || !bottoms.length || !shoes.length) {
         console.log('Missing essential components for outfit.');
         if (!tops.length) {
@@ -354,8 +387,8 @@ export const generateOutfit = async (closetItems, season, occasion) => {
     // Step 4: Filter bottoms and shoes based on the color scheme
     const colorFilteredItems = applyColorScheme(filteredItems, colorScheme, randomTop.color);
   
-    const colorFilteredBottoms = colorFilteredItems.filter(item => item.subcategory === 'bottom');
-    const colorFilteredShoes = colorFilteredItems.filter(item => item.subcategory === 'shoes');
+    const colorFilteredBottoms = colorFilteredItems.filter(item => item.subcategory.toLowerCase() === 'bottom');
+    const colorFilteredShoes = colorFilteredItems.filter(item => item.subcategory.toLowerCase() === 'shoes');
   
     // Ensure all components are selected
     const outfit = {
@@ -492,51 +525,70 @@ export const generateOutfit = async (closetItems, season, occasion) => {
         return color1.r === color2.r && color1.g === color2.g && color1.b === color2.b;
     };
 
-export const OutfitDisplay = ({ generatedOutfit, modalVisible, setModalVisible }) => {
+export const OutfitDisplay = ({ generatedOutfit, modalVisible, setModalVisible, outfitType }) => {
 
-    console.log("generatedOutfit")
+   
     const [loading, setLoading] = useState(false);
     const collageRef = useRef(null); // Define collageRef here
 
+    //console.log("Modal state:", modalVisible);
+    
+
     const navigation = useNavigation();
+
+    useEffect(() => {
+        if (modalVisible) {
+            console.log("Modal opened");
+        }
+        return () => {
+            if (modalVisible) {
+                console.log("Modal closed");
+            }
+        };
+    }, [modalVisible]);
+
 
     // Close the modal
     const closeOutfit = () => {
         setModalVisible(false);
+        if (typeof outfitType === 'function') {
+            outfitType(null);
+        }
+
     };
 
     const handleSaveOutfit = async () => {
         const user = auth.currentUser;
-
+    
         // Check for user and ensure generatedOutfit is a valid object and not empty
         if (!user || !generatedOutfit || Object.keys(generatedOutfit).length === 0) {
             Alert.alert('Error', 'User not authenticated or no outfit generated.');
             return;
         }
-
+    
         try {
             setLoading(true);
-
+    
             // Reference to the user's outfits collection in Firestore
             const userRef = doc(db, 'users', user.uid);
             const outfitsRef = collection(userRef, 'outfits');
-
+    
             // Ensure `_j` exists
             const items = generatedOutfit._j || generatedOutfit;
-
+    
             if (!items) {
                 console.log("No valid `_j` found in generatedOutfit.");
                 Alert.alert('Error', 'No valid outfit generated.');
                 return;
             }
-
+    
             // Process valid items
             const outfitData = {}; // This will hold the entire outfit
-
-            // Loop through `top` and `bottom` keys in `generatedOutfit._j`
+    
+            // Loop through `top`, `bottom`, and `shoes` keys in `generatedOutfit._j`
             ['top', 'bottom', 'shoes'].forEach((key) => {
                 const item = items[key];
-
+    
                 // Validate the item
                 if (item?.ItemID && item?.imageUrl) {
                     outfitData[key] = {
@@ -551,25 +603,25 @@ export const OutfitDisplay = ({ generatedOutfit, modalVisible, setModalVisible }
                     console.log(`Skipping invalid item: ${key}`, item); 
                 }
             });
-
+    
             // Ensure there is at least one valid item before saving
             if (Object.keys(outfitData).length > 0) {
+                console.log("Outfit data is valid, proceeding to save the outfit...");
+    
                 // Generate a unique image for the outfit by capturing the collage
                 const compositeImageUrl = await saveCollage(collageRef);
-
+                console.log("Composite image URL:", compositeImageUrl);
+    
                 if (!compositeImageUrl) {
                     throw new Error("Failed to generate outfit image.");
                 }
-
+    
                 // Save the entire outfit as one document
                 await addDoc(outfitsRef, {
                     outfit: outfitData, 
                     outfitImageUrl: compositeImageUrl, // Use the image URL for the outfit collage
                     createdAt: new Date(), // Optional: Add a timestamp
                 });
-
-                
-    
             } else {
                 Alert.alert('Error', 'No valid items to save.');
             }
@@ -582,43 +634,64 @@ export const OutfitDisplay = ({ generatedOutfit, modalVisible, setModalVisible }
                 {
                     text: 'OK',
                     onPress: () => navigation.navigate('Profile', { screen: 'Saved' })
-
                 },
             ]);
         }
     };
-
+    
     const saveCollage = async (collageRef) => {
         try {
-            // Capture the collage view as an image
-            const uri = await captureRef(collageRef, {
-                format: 'png',
-                quality: 1.0,
-                
-            });
+            console.log('Starting to capture the collage view...');
+            console.log('Collage ref:', collageRef); // Log the reference to check if it's valid
+            console.log(collageRef.current);  // Should not be null or undefined
+
+            // Check if the collageRef is valid before proceeding
+            if (collageRef && collageRef.current) {
+                // Wait for the next render cycle to ensure layout is complete
+                await new Promise(resolve => requestAnimationFrame(resolve));
     
-            if (!uri) {
-                throw new Error('Failed to capture collage');
+                const uri = await captureRef(collageRef, {
+                    quality: 0.8,  // Adjust quality if needed, no format is specified
+                });
+    
+                if (!uri) {
+                    console.log('Failed to capture collage: No URI returned.');
+                    throw new Error('Failed to capture collage.');
+                }
+    
+                console.log('Collage captured successfully. URI:', uri);
+    
+                // Convert the URI to a blob
+                const response = await fetch(uri);
+                const blob = await response.blob();
+    
+                console.log('Blob created from URI:', blob);
+    
+                // Upload the image to Firebase Storage
+                const storageRef = storage.ref(`collages/${Date.now()}`);
+                console.log('Uploading image to Firebase Storage with reference:', storageRef);
+    
+                await uploadBytes(storageRef, blob);
+    
+                console.log('Image uploaded successfully.');
+    
+                // Get the download URL for the uploaded image
+                const downloadURL = await getDownloadURL(storageRef);
+                console.log('Download URL for the uploaded image:', downloadURL);
+    
+                return downloadURL;
+            } else {
+                console.log('Error: Invalid collage reference.');
+                throw new Error('Collage reference is not valid.');
             }
-    
-            // Convert the URI to a blob
-            const response = await fetch(uri);
-            const blob = await response.blob();
-    
-            // Upload the image to Firebase Storage
-            const storageRef = ref(storage, `collages/${Date.now()}.png`);
-            await uploadBytes(storageRef, blob);
-    
-            // Get the download URL for the uploaded image
-            const downloadURL = await getDownloadURL(storageRef);
-    
-            
-            return downloadURL;
         } catch (error) {
             console.error('Error saving collage:', error);
             Alert.alert('Error', 'Failed to save collage.');
         }
     };
+    
+    
+
     
     const renderCollage = (generatedOutfit) => {
     
@@ -626,7 +699,12 @@ export const OutfitDisplay = ({ generatedOutfit, modalVisible, setModalVisible }
         
         // Destructure top, bottom, and shoes from generatedOutfit
         const { top, bottom, shoes } = generatedOutfit._j || generatedOutfit || {}; 
-    
+        console.log(top?.imageUrl)
+        console.log(bottom?.imageUrl)
+        if (!top && !bottom && !shoes) {
+            console.log("No items found in outfit:", generatedOutfit);
+            return <Text>No items to display</Text>;
+        }
         // Determine if shoes are available
         const isShoesAvailable = shoes && shoes.imageUrl;
     
@@ -668,32 +746,33 @@ export const OutfitDisplay = ({ generatedOutfit, modalVisible, setModalVisible }
             visible={modalVisible}
             onRequestClose={closeOutfit}
         >
+            
             <View style={styles.modalBackground}>
-                <View style={styles.modalContainer}>
-                    <Text style={styles.modalTitle}>Your Outfit</Text>
-    
-                    {/* Show loading spinner if `loading` is true */}
-                    {loading ? (
-                        <ActivityIndicator size="large" color="#0000ff" style={styles.loader} />
-                    ) : (
-                        <View style={styles.collageContainer} ref={collageRef}>
-                            {renderCollage(generatedOutfit)}
-                        </View>
-                    )}
-    
-                    <TouchableOpacity
-                        style={styles.saveButton}
-                        onPress={() => handleSaveOutfit(generatedOutfit)}
-                    >
-                        <Text style={styles.saveText}>Save Outfit</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                        style={styles.closeButton}
-                        onPress={closeOutfit}
-                    >
-                        <Text style={styles.closeText}>X</Text>
-                    </TouchableOpacity>
-                </View>
+            <View style={styles.modalContainer}>
+            <Text style={styles.modalTitle}>
+                {outfitType === 'generated' ? 'Generated Outfit' : 'Surprise Outfit'}
+            </Text>
+            
+            {loading ? (
+                <ActivityIndicator size="large" color="#0000ff" style={styles.loader} />
+            ) : (
+                renderCollage(generatedOutfit) // Render the collage only when loading is complete
+            )}
+            
+            <TouchableOpacity
+                style={styles.saveButton}
+                onPress={() => handleSaveOutfit(generatedOutfit)}
+            >
+                <Text style={styles.saveText}>Save Outfit</Text>
+            </TouchableOpacity>
+            
+            <TouchableOpacity
+                style={styles.closeButton}
+                onPress={closeOutfit}
+            >
+                <Text style={styles.closeText}>X</Text>
+            </TouchableOpacity>
+            </View>
             </View>
         </Modal>
     );
@@ -827,7 +906,7 @@ const styles = StyleSheet.create({
         width: '80%',
         backgroundColor: 'white',
         borderRadius: 10,
-        padding: 20,
+        padding: 50,
         alignItems: 'center',
         shadowColor: '#000',
         shadowOpacity: 0.25,
@@ -835,7 +914,7 @@ const styles = StyleSheet.create({
         elevation: 5,
         // Removed extra paddingTop
         paddingTop: 0,   // Remove unnecessary paddingTop
-        height: '38%',   // Let content determine the height
+        height: '45%',   // Let content determine the height
         
     },
     
@@ -887,7 +966,7 @@ const styles = StyleSheet.create({
     closeButton: {
         position: 'absolute', // Keeps the close button in the top-right corner
         top: 5,             // Adjust top to ensure it's placed properly
-        left: 20,           // Move it to the right edge
+        left: 10,           // Move it to the right edge
         paddingVertical: 10,
         paddingHorizontal: 15,
         borderRadius: 8,
@@ -944,6 +1023,7 @@ const styles = StyleSheet.create({
         width: 100, // Adjust the image size as necessary
         height: 100,
         resizeMode: 'contain',
+        
     },
     closeButtonModista: {
         position: 'absolute',
@@ -954,8 +1034,8 @@ const styles = StyleSheet.create({
         borderRadius: 8,
     },
     modalTitle: {
-        paddingTop: 20,
-        fontSize: 27,
+        paddingTop: 30,
+        fontSize: 24,
         fontWeight: 'bold',
         marginBottom: 10,
         color: '#6a0dad',
