@@ -246,7 +246,7 @@ const UserProfile = ({navigation}) => {
               style={styles.iconButton}
               onPress={() => navigation.navigate('ProfileEdit')}
             >
-              <MaterialCommunityIcons name="pencil" size={24} color="black" />
+              <MaterialCommunityIcons name="pencil" size={24} color="purple" />
             </TouchableOpacity>
 
             {/* Saved Posts Button */}
@@ -254,7 +254,7 @@ const UserProfile = ({navigation}) => {
               style={[styles.iconButton, { marginTop: 10 }]}
               onPress={() => navigation.navigate('SavedPosts')}
             >
-              <MaterialCommunityIcons name="bookmark" size={24} color="black" />
+              <MaterialCommunityIcons name="bookmark" size={24} color="purple" />
             </TouchableOpacity>
           </View>
         </View>
@@ -536,6 +536,32 @@ const styles = StyleSheet.create({
     color: 'white',
     fontSize: 16,
     textAlign: 'center'
+  },
+  profileWrapper: {
+    width: '100%',
+    flexDirection: 'row',
+    justifyContent: 'center',
+    position: 'relative',
+  },
+  profileButtons: {
+    position: 'absolute',
+    right: 20,
+    top: -20,
+    alignItems: 'center',
+  },
+  iconButton: {
+    backgroundColor: 'white',
+    padding: 10,
+    borderRadius: 25,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
+    marginBottom: 10,
   },
 });
 
