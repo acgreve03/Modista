@@ -285,31 +285,24 @@ const NotificationScreen = () => {
 
   return (
     <View style={styles.container}>
-      {notifications.length === 0 ? (
-        <View style={styles.emptyContainer}>
-          <Text style={styles.emptyText}>No notifications yet</Text>
-        </View>
-      ) : (
-        <FlatList
-          data={notifications}
-          renderItem={({item}) => (
-            <NotificationItem 
-              notification={item}
-              onFollowBack={handleFollowBack}
-              currentUserFollowing={currentUserFollowing}
-              onUserPress={handleUserPress}
-            />
-          )}
-          keyExtractor={item => item.id}
-          refreshing={refreshing}
-          onRefresh={onRefresh}
-        />
-      )}
+      <FlatList
+        data={notifications}
+        renderItem={({item}) => (
+          <NotificationItem 
+            notification={item}
+            onFollowBack={handleFollowBack}
+            currentUserFollowing={currentUserFollowing}
+            onUserPress={handleUserPress}
+          />
+        )}
+        keyExtractor={item => item.id}
+        refreshing={refreshing}
+        onRefresh={onRefresh}
+      />
 
-      {/* User Profile Modal */}
-      <Modal 
-        visible={isModalVisible} 
-        animationType="slide" 
+      <Modal
+        visible={isModalVisible}
+        animationType="slide"
         onRequestClose={() => setIsModalVisible(false)}
       >
         <View style={styles.modalContent}>
@@ -321,13 +314,13 @@ const NotificationScreen = () => {
           </TouchableOpacity>
           
           {selectedUserProfile && (
-            <ScrollView contentContainerStyle={styles.publicProfileContainer}>
+            <View style={styles.publicProfileContainer}>
               <Image 
                 source={{ uri: selectedUserProfile.profilePictureUrl || 'https://via.placeholder.com/150' }}
                 style={styles.publicProfilePicture}
               />
               <Text style={styles.publicName}>
-                {selectedUserProfile.firstName} {selectedUserProfile.lastName}
+                {`${selectedUserProfile.firstName} ${selectedUserProfile.lastName}`}
               </Text>
               <Text style={styles.publicUserName}>{selectedUserProfile.userName}</Text>
               <Text style={styles.publicBio}>{selectedUserProfile.bio}</Text>
@@ -351,7 +344,7 @@ const NotificationScreen = () => {
                   </Text>
                 </TouchableOpacity>
               )}
-            </ScrollView>
+            </View>
           )}
         </View>
       </Modal>
@@ -447,59 +440,81 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: 'white',
     padding: 20,
+    paddingTop: 60,
   },
   backArrowContainer: {
-    padding: 10,
+    marginRight: 10,
+    padding: 5,
   },
   backArrowText: {
-    fontSize: 24,
-    color: '#333',
+    fontSize: 30,
+    fontWeight: 'bold',
+    color: 'black',
+    marginTop: 15,
   },
   publicProfileContainer: {
+    flex: 1,
     alignItems: 'center',
-    paddingTop: 20,
+    justifyContent: 'flex-start',
+    paddingTop: 50,
+    backgroundColor: 'white',
   },
   publicProfilePicture: {
     width: 100,
     height: 100,
-    borderRadius: 50,
+    borderRadius: 60,
+    borderWidth: 2,
+    borderColor: '#ddd',
     marginBottom: 15,
   },
   publicName: {
     fontSize: 24,
     fontWeight: 'bold',
-    marginBottom: 5,
+    color: '#333',
+    textAlign: 'center',
+    marginBottom: 8,
+    fontFamily: 'Helvetica',
   },
   publicUserName: {
-    fontSize: 16,
+    fontSize: 18,
     color: '#666',
-    marginBottom: 10,
+    textAlign: 'center',
+    marginBottom: 12,
+    fontFamily: 'Helvetica',
   },
   publicBio: {
+    fontSize: 16,
+    color: '#666',
     textAlign: 'center',
-    marginBottom: 20,
+    marginBottom: 0,
+    paddingHorizontal: 20,
+    fontFamily: 'Helvetica',
   },
   stats: {
     flexDirection: 'row',
     justifyContent: 'space-around',
     width: '100%',
-    marginBottom: 20,
+    paddingHorizontal: 20,
+    marginVertical: 10,
   },
   stat: {
-    marginHorizontal: 20,
+    color: '#333',
+    fontSize: 16,
+    fontFamily: 'Helvetica',
   },
   followButton: {
-    backgroundColor: 'purple',
-    paddingHorizontal: 30,
-    paddingVertical: 10,
-    borderRadius: 20,
+    backgroundColor: '#007bff',
+    padding: 10,
+    borderRadius: 5,
+    marginTop: 10,
   },
   followingButton: {
-    backgroundColor: '#666',
+    backgroundColor: '#6c757d',
   },
   followButtonText: {
     color: 'white',
     fontSize: 16,
+    textAlign: 'center'
   },
 });
 
