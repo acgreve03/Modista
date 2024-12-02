@@ -246,15 +246,7 @@ const UserProfile = ({navigation}) => {
               style={styles.iconButton}
               onPress={() => navigation.navigate('ProfileEdit')}
             >
-              <MaterialCommunityIcons name="pencil" size={24} color="purple" />
-            </TouchableOpacity>
-
-            {/* Saved Posts Button */}
-            <TouchableOpacity
-              style={[styles.iconButton, { marginTop: 10 }]}
-              onPress={() => navigation.navigate('SavedPosts')}
-            >
-              <MaterialCommunityIcons name="bookmark" size={24} color="purple" />
+              <MaterialCommunityIcons name="pencil" size={24} color="black" />
             </TouchableOpacity>
           </View>
         </View>
