@@ -1,9 +1,13 @@
 import React, { useState } from 'react';
 import { View, Text, TextInput, Image, StyleSheet, TouchableOpacity, Modal, ScrollView } from 'react-native';
-import { FontAwesome, MaterialCommunityIcons } from '@expo/vector-icons';
+import { FontAwesome } from '@expo/vector-icons';
 import { collection, getDocs, query, where, doc, getDoc, updateDoc, addDoc, serverTimestamp } from 'firebase/firestore';
 import { db, auth } from '../firebaseConfig';
 
+/**
+ * SearchScreen Component
+ * A screen for browsing and searching for outfit inspirations with advanced recommendations.
+ */
 export default function SearchScreen() {
   const [searchQuery, setSearchQuery] = useState('');
   const [isSearching, setIsSearching] = useState(false);
@@ -12,9 +16,59 @@ export default function SearchScreen() {
   const [selectedUserProfile, setSelectedUserProfile] = useState(null);
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [isFollowing, setIsFollowing] = useState(false);
+  const [results, setResults] = useState([]);
+  const [outfits, setOutfits] = useState([
+    // Mock data for outfits
+    { id: 1, name: 'Autumn Outfit', category: 'Casual', views: 200, image: 'https://via.placeholder.com/150' },
+    { id: 2, name: 'Sweater Weather', category: 'Comfy', views: 500, image: 'https://via.placeholder.com/150' },
+    { id: 3, name: 'Chic Skirts', category: 'Classy', views: 150, image: 'https://via.placeholder.com/150' },
+    { id: 4, name: 'Winter Coat', category: 'Warm', views: 300, image: 'https://via.placeholder.com/150' },
+  ]);
+
+    // Mock data for recent searches and collaborative filtering
+    const recentSearches = ['Casual', 'Warm', 'Sweater'];
+    const collaborativeData = {
+      Casual: ['Sweater Weather', 'Winter Coat'],
+      Warm: ['Autumn Outfit', 'Chic Skirts'],
+    };
 
   const handleSearch = async (text) => {
     setSearchQuery(text);
+
+    let filteredResults = [];
+    if (text) {
+      filteredResults = outfits.filter(
+        (item) =>
+          item.name.toLowerCase().includes(text.toLowerCase()) ||
+          item.category.toLowerCase().includes(text.toLowerCase())
+      );
+
+      // If no exact matches, recommend items based on collaborative filtering
+      if (filteredResults.length === 0) {
+        const relatedItems = collaborativeData[text];
+        if (relatedItems) {
+          filteredResults = outfits.filter((item) =>
+          relatedItems.includes(item.name)
+          );
+        }
+      }
+
+      // Apply a weighted scoring system to rank results by popularity and relevance
+      filteredResults = filteredResults.map((item) => ({
+        ...item,
+        score:
+        item.views / 100 + (recentSearches.includes(item.category) ? 2 : 0),
+      }));
+
+      //Sort by highest score
+      filteredResults.sort((a, b) => b.score - a.score);
+    } else {
+      // Show popular items if no search query
+      filteredResults = outfits.sort((a, b) => b.views - a.views);
+    }
+
+    setResults(filteredResults);
+
     if (text.trim() === '') {
       setUserResults([]);
       return;
@@ -40,6 +94,8 @@ export default function SearchScreen() {
       setIsSearching(false);
     }
   };
+
+  const dataToDisplay = results.length > 0 ? results : outfits;
 
   const handleFollowToggle = async (userId) => {
     try {
@@ -140,10 +196,16 @@ export default function SearchScreen() {
       </View>
 
       {isFocused || searchQuery ? (
-        isSearching ? (
-          <Text style={styles.loadingText}>Searching...</Text>
-        ) : userResults.length > 0 ? (
-          <View>
+        results.length > 0 || userResults.length > 0 ? (
+          <ScrollView>
+            <View style={styles.grid}>
+            {dataToDisplay.map((outfit) => (
+              <View key={outfit.id} style={styles.outfitCard}>
+                <Image source={{ uri: outfit.image }} style={styles.outfitImage} />
+                <Text style={styles.outfitName}>{outfit.name}</Text>
+              </View>
+            ))}
+            </View>
             {userResults.map((user) => (
               <TouchableOpacity
                 key={user.id}
@@ -157,26 +219,26 @@ export default function SearchScreen() {
                 <Text style={styles.userName}>{user.userName}</Text>
               </TouchableOpacity>
             ))}
-          </View>
+          </ScrollView>
         ) : (
           <Text style={styles.noResultsText}>No results found</Text>
         )
       ) : (
         <>
           <View style={styles.tagContainer}>
-            {['Casual', 'Classy', 'Comfy', 'Formal', 'Cozy', 'Warm', 'Spring', 'Fall'].map((tag) => (
-              <TouchableOpacity key={tag} style={styles.tag}>
+            {['Casual', 'Classy', 'Comfy', 'Warm'].map((tag) => (
+              <TouchableOpacity
+                key={tag}
+                style={styles.tag}
+                onPress={() => handleSearch(tag)}
+              >
                 <Text style={styles.tagText}>{tag}</Text>
               </TouchableOpacity>
             ))}
           </View>
-          <Text style={styles.sectionTitle}>More Inspo</Text>
+          <Text style={styles.sectionTitle}>Popular Now</Text>
           <View style={styles.grid}>
-            {[
-              { id: 1, name: 'Autumn Outfit', image: 'https://via.placeholder.com/150' },
-              { id: 2, name: 'Sweater Weather', image: 'https://via.placeholder.com/150' },
-              { id: 3, name: 'Chic Skirts', image: 'https://via.placeholder.com/150' },
-            ].map((outfit) => (
+            {dataToDisplay.map((outfit) => (
               <View key={outfit.id} style={styles.outfitCard}>
                 <Image source={{ uri: outfit.image }} style={styles.outfitImage} />
                 <Text style={styles.outfitName}>{outfit.name}</Text>
