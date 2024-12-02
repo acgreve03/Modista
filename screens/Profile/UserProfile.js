@@ -1,17 +1,9 @@
 import React, { useState, useEffect } from 'react';
-<<<<<<< HEAD
 import { View, Text, StyleSheet, Image, TouchableOpacity, ActivityIndicator, ScrollView, Modal, FlatList } from 'react-native';
 import Outfits from './Outfits'; // Import the OutfitsGrid component
 import Closet from './Closet'; // Import the Closet component
 import Saved from './Saved'; // Import the Closet component
 import { doc, getDoc, onSnapshot, updateDoc, collection, addDoc, serverTimestamp } from 'firebase/firestore';
-=======
-import { View, Text, StyleSheet, Image, TouchableOpacity, ActivityIndicator, ScrollView, Modal, Button, FlatList } from 'react-native';
-import Outfits from './Outfits';
-import Closet from './Closet';
-import Saved from './Saved';
-import { doc, getDoc } from 'firebase/firestore';
->>>>>>> main
 import { db } from '../../firebaseConfig';
 import { auth } from '../../firebaseConfig';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -101,7 +93,6 @@ const UserProfile = ({navigation}) => {
     }
   };
 
-<<<<<<< HEAD
   const handleFollowToggle = async (userId) => {
     try {
       const currentUserRef = doc(db, 'users', auth.currentUser.uid);
@@ -190,8 +181,6 @@ const UserProfile = ({navigation}) => {
   }, []);
 
   //Open selected user's profile
-=======
->>>>>>> main
   const openUserProfileModal = async (userId) => {
     const userRef = doc(db, 'users', userId);
     const docSnap = await getDoc(userRef);
@@ -534,7 +523,6 @@ const styles = StyleSheet.create({
     marginBottom: 0,
     paddingHorizontal: 20,
   },
-<<<<<<< HEAD
   followButton: {
     backgroundColor: '#007bff',
     padding: 10,
@@ -549,46 +537,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     textAlign: 'center'
   },
-=======
-  profilePictureContainer: {
-    width: '100%',
-    alignItems: 'center',
-    justifyContent: 'center',
-    position: 'relative',
-  },
-  profileButtons: {
-    position: 'absolute',
-    right: '-30%',
-    top: '30%',
-    alignItems: 'center',
-  },
-  iconButton: {
-    backgroundColor: 'white',
-    padding: 8,
-    borderRadius: 20,
-    shadowColor: '#000',
-    shadowOffset: {
-        width: 0,
-        height: 2,
-    },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-    elevation: 5,
-  },
-  savedPostsButton: {
-    backgroundColor: 'purple',
-    padding: 10,
-    borderRadius: 20,
-    marginTop: 10,
-    width: '50%',
-    alignSelf: 'center'
-  },
-  buttonText: {
-    color: 'white',
-    textAlign: 'center',
-    fontWeight: 'bold'
-  }
->>>>>>> main
 });
 
 export default UserProfile;

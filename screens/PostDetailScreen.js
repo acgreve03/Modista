@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Image, FlatList, TextInput, Alert, KeyboardAvoidingView, Platform, Modal } from 'react-native';
-import { doc, getDoc, updateDoc, addDoc, collection, getDocs, arrayUnion, arrayRemove, query, orderBy, Timestamp, deleteDoc } from 'firebase/firestore';
+import { doc, getDoc, updateDoc, addDoc, collection, getDocs, arrayUnion, arrayRemove, query, orderBy, Timestamp, deleteDoc, serverTimestamp } from 'firebase/firestore';
 import { db, auth } from '../firebaseConfig';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 
@@ -15,6 +15,38 @@ const PostDetailsScreen = ({ route, navigation }) => {
     const [liked, setLiked] = useState(false);
     const [modalVisible, setModalVisible] = useState(false);
     const [isSaved, setIsSaved] = useState(false);
+
+    const createNotification = async (type, recipientId, postId, commentText = null) => {
+        if (!auth.currentUser) return; // Safety check
+        
+        try {
+            // Get current user's data
+            const userRef = doc(db, 'users', auth.currentUser.uid);
+            const userSnap = await getDoc(userRef);
+            const userData = userSnap.data();
+
+            // Create notification object
+            const notificationData = {
+                type, // 'like' or 'comment'
+                senderId: auth.currentUser.uid,
+                recipientId,
+                postId,
+                senderName: userData.userName || 'User',
+                senderProfilePic: userData.profilePictureUrl || 'https://via.placeholder.com/40',
+                commentText,
+                createdAt: serverTimestamp(),
+                read: false
+            };
+
+            // Add notification to collection
+            const notificationsRef = collection(db, 'notifications');
+            await addDoc(notificationsRef, notificationData);
+            
+            console.log(`${type} notification created for user ${recipientId}`);
+        } catch (error) {
+            console.error('Error creating notification:', error);
+        }
+    };
 
     useEffect(() => {
         const fetchCurrentUser = () => {
@@ -54,6 +86,7 @@ const PostDetailsScreen = ({ route, navigation }) => {
 
             if (postSnapshot.exists()) {
                 const postData = postSnapshot.data();
+                console.log('Fetched post data:', postData); // Debug log
                 setPost(postData);
 
                 if (postData.userId) {
@@ -62,6 +95,13 @@ const PostDetailsScreen = ({ route, navigation }) => {
 
                 if (postData.likes?.includes(auth.currentUser?.uid)) {
                     setLiked(true);
+                }
+
+                // Check saved status
+                if (auth.currentUser) {
+                    const isSavedByUser = postData.saves?.includes(auth.currentUser.uid) || false;
+                    console.log('Initial saved status:', isSavedByUser); // Debug log
+                    setIsSaved(isSavedByUser);
                 }
             } else {
                 console.error('Post not found');
@@ -164,6 +204,11 @@ const PostDetailsScreen = ({ route, navigation }) => {
                 userProfilePic: userData.profilePictureUrl
             });
 
+            // Create notification for comment (only if the post isn't the current user's)
+            if (post.userId !== currentUser.uid) {
+                await createNotification('comment', post.userId, postId, newComment.trim());
+            }
+
             setNewComment('');
             fetchComments(postId);
         } catch (error) {
@@ -172,34 +217,50 @@ const PostDetailsScreen = ({ route, navigation }) => {
     };
 
     const handleLike = async () => {
-        if (!currentUser || !post) return;
+        console.log('handleLike started');
+        if (!currentUser || !post) {
+            console.log('No currentUser or post:', { currentUser, post });
+            return;
+        }
 
         try {
+            console.log('Attempting to update like status');
             const postRef = doc(db, 'posts', postId);
 
             if (liked) {
+                console.log('Removing like');
                 await updateDoc(postRef, {
                     likes: arrayRemove(currentUser.uid),
                 });
-
                 setPost((prevPost) => ({
                     ...prevPost,
                     likes: prevPost.likes.filter((uid) => uid !== currentUser.uid),
                 }));
                 setLiked(false);
             } else {
+                console.log('Adding like');
                 await updateDoc(postRef, {
                     likes: arrayUnion(currentUser.uid),
                 });
-
                 setPost((prevPost) => ({
                     ...prevPost,
                     likes: [...(prevPost.likes || []), currentUser.uid],
                 }));
                 setLiked(true);
+
+                // Create notification for like (only if the post isn't the current user's)
+                if (post.userId !== currentUser.uid) {
+                    console.log('Creating notification for:', { recipientId: post.userId, postId });
+                    try {
+                        await createNotification('like', post.userId, postId);
+                    } catch (notifError) {
+                        console.error('Error in createNotification:', notifError);
+                    }
+                }
             }
         } catch (error) {
-            console.error('Error updating like status:', error);
+            console.error('Error in handleLike:', error);
+            console.error('Error stack:', error.stack);
         }
     };
 
@@ -286,10 +347,10 @@ const PostDetailsScreen = ({ route, navigation }) => {
 
                     {/* Save Button */}
                     <TouchableOpacity onPress={handleSavePost}>
-                        <MaterialCommunityIcons 
-                            name={isSaved ? "bookmark" : "bookmark-outline"} 
-                            size={24} 
-                            color={isSaved ? "purple" : "black"} 
+                        <MaterialCommunityIcons
+                            name={isSaved ? "bookmark" : "bookmark-outline"}
+                            size={24}
+                            color={isSaved ? "#007AFF" : "#000"}
                         />
                     </TouchableOpacity>
                 </View>

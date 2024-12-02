@@ -8,10 +8,23 @@ const db = getFirestore();
 
 const NotificationItem = ({ notification, onFollowBack, currentUserFollowing }) => {
   const isFollowNotification = notification.type === 'follow';
-  const alreadyFollowing = currentUserFollowing?.includes(notification.senderId);
+  const alreadyFollowing = currentUserFollowing.includes(notification.senderId);
+
+  const getNotificationText = () => {
+    switch (notification.type) {
+      case 'follow':
+        return 'started following you';
+      case 'like':
+        return 'liked your post';
+      case 'comment':
+        return `commented: "${notification.commentText}"`;
+      default:
+        return '';
+    }
+  };
 
   return (
-    <View key={notification.id} style={styles.notificationContainer}>
+    <View style={styles.notificationContainer}>
       <Image 
         source={{ uri: notification.senderProfilePic || 'https://via.placeholder.com/40' }}
         style={styles.avatar}
@@ -19,9 +32,11 @@ const NotificationItem = ({ notification, onFollowBack, currentUserFollowing }) 
       <View style={styles.notificationTextContainer}>
         <Text style={styles.notificationText}>
           <Text style={styles.username}>{notification.senderName}</Text>
-          {isFollowNotification ? ' started following you' : ` ${notification.type}`}
+          {' '}{getNotificationText()}
         </Text>
-        <Text style={styles.timestamp}>{getRelativeTime(notification.createdAt?.toDate())}</Text>
+        <Text style={styles.timestamp}>
+          {getRelativeTime(notification.createdAt?.toDate())}
+        </Text>
       </View>
       {isFollowNotification && !alreadyFollowing && (
         <TouchableOpacity 
