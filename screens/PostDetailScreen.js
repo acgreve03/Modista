@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Image, FlatList, TextInput, Alert, KeyboardAvoidingView, Platform, Modal } from 'react-native';
-import { doc, getDoc, updateDoc, addDoc, collection, getDocs, arrayUnion, arrayRemove, query, orderBy, Timestamp, deleteDoc } from 'firebase/firestore';
+import { doc, getDoc, updateDoc, addDoc, collection, getDocs, arrayUnion, arrayRemove, query, orderBy, Timestamp, deleteDoc, serverTimestamp } from 'firebase/firestore';
 import { db, auth } from '../firebaseConfig';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 
@@ -15,6 +15,39 @@ const PostDetailsScreen = ({ route, navigation }) => {
     const [liked, setLiked] = useState(false);
     const [modalVisible, setModalVisible] = useState(false);
     const [isSaved, setIsSaved] = useState(false);
+
+    const createNotification = async (type, recipientId, postId, commentText = null) => {
+        if (!auth.currentUser) return;
+        
+        try {
+            const userRef = doc(db, 'users', auth.currentUser.uid);
+            const userSnap = await getDoc(userRef);
+            const userData = userSnap.data();
+
+            const postRef = doc(db, 'posts', postId);
+            const postSnap = await getDoc(postRef);
+            const postData = postSnap.data();
+
+            console.log('Post data for notification:', postData); // Debug log
+
+            const notificationData = {
+                type,
+                senderId: auth.currentUser.uid,
+                recipientId,
+                senderName: userData.userName,
+                senderProfilePic: userData.profilePictureUrl,
+                postId,
+                postImage: postData.itemImage,
+                commentText: type === 'comment' ? commentText : null,
+                createdAt: serverTimestamp()
+            };
+
+            console.log('Creating notification with data:', notificationData); // Debug log
+            await addDoc(collection(db, 'notifications'), notificationData);
+        } catch (error) {
+            console.error('Error creating notification:', error);
+        }
+    };
 
     useEffect(() => {
         const fetchCurrentUser = () => {
@@ -54,6 +87,7 @@ const PostDetailsScreen = ({ route, navigation }) => {
 
             if (postSnapshot.exists()) {
                 const postData = postSnapshot.data();
+                console.log('Fetched post data:', postData); // Debug log
                 setPost(postData);
 
                 if (postData.userId) {
@@ -164,6 +198,11 @@ const PostDetailsScreen = ({ route, navigation }) => {
                 userProfilePic: userData.profilePictureUrl
             });
 
+            // Create notification for comment (only if the post isn't the current user's)
+            if (post.userId !== currentUser.uid) {
+                await createNotification('comment', post.userId, postId, newComment.trim());
+            }
+
             setNewComment('');
             fetchComments(postId);
         } catch (error) {
@@ -181,25 +220,29 @@ const PostDetailsScreen = ({ route, navigation }) => {
                 await updateDoc(postRef, {
                     likes: arrayRemove(currentUser.uid),
                 });
-
-                setPost((prevPost) => ({
+                setPost(prevPost => ({
                     ...prevPost,
-                    likes: prevPost.likes.filter((uid) => uid !== currentUser.uid),
+                    likes: prevPost.likes.filter(uid => uid !== currentUser.uid),
                 }));
                 setLiked(false);
             } else {
                 await updateDoc(postRef, {
                     likes: arrayUnion(currentUser.uid),
                 });
-
-                setPost((prevPost) => ({
+                setPost(prevPost => ({
                     ...prevPost,
                     likes: [...(prevPost.likes || []), currentUser.uid],
                 }));
                 setLiked(true);
+
+                // Only create notification if it's not the user's own post
+                if (post.userId !== currentUser.uid) {
+                    console.log('Post data before notification:', post); // Debug log
+                    await createNotification('like', post.userId, postId);
+                }
             }
         } catch (error) {
-            console.error('Error updating like status:', error);
+            console.error('Error in handleLike:', error);
         }
     };
 
@@ -286,10 +329,10 @@ const PostDetailsScreen = ({ route, navigation }) => {
 
                     {/* Save Button */}
                     <TouchableOpacity onPress={handleSavePost}>
-                        <MaterialCommunityIcons 
-                            name={isSaved ? "bookmark" : "bookmark-outline"} 
-                            size={24} 
-                            color={isSaved ? "purple" : "black"} 
+                        <MaterialCommunityIcons
+                            name={isSaved ? "bookmark" : "bookmark-outline"}
+                            size={24}
+                            color={isSaved ? "#007AFF" : "#000"}
                         />
                     </TouchableOpacity>
                 </View>

@@ -108,39 +108,46 @@ const UserProfile = ({navigation}) => {
         const currentFollowing = currentUserData.following || [];
         const targetFollowers = targetUserData.followers || [];
 
-        //Unfollow logic
         if (currentFollowing.includes(userId)) {
+          // Unfollow logic
           const updatedFollowing = currentFollowing.filter(id => id !== userId);
           const updatedFollowers = targetFollowers.filter(id => id !== auth.currentUser.uid);
-
+          
           await updateDoc(currentUserRef, { following: updatedFollowing});
           await updateDoc(targetUserRef, { followers: updatedFollowers});
-
+          
           setSelectedUserProfile(prevState => ({
             ...prevState,
             followers: updatedFollowers,
           }));
           setIsFollowing(false);
         } else {
-          //Follow logic
+          // Follow logic
           const updatedFollowing = [...currentFollowing, userId];
           const updatedFollowers = [...targetFollowers, auth.currentUser.uid];
           
           await updateDoc(currentUserRef, { following: updatedFollowing});
           await updateDoc(targetUserRef, { followers: updatedFollowers});
-
+          
+          // Create notification when following
+          await addDoc(collection(db, 'notifications'), {
+            type: 'follow',
+            senderId: auth.currentUser.uid,
+            recipientId: userId,
+            senderName: currentUserData.userName || auth.currentUser.displayName || 'User',
+            senderProfilePic: currentUserData.profilePictureUrl || auth.currentUser.photoURL || 'https://via.placeholder.com/40',
+            createdAt: serverTimestamp()
+          });
+          
           setSelectedUserProfile(prevState => ({
             ...prevState,
             followers: updatedFollowers,
           }));
           setIsFollowing(true);
         }
-        //Refresh the lists
-        await fetchFollowers();
-        await fetchFollowing();
       }
     } catch (error) {
-      console.error("Error updating follow state: ", error);
+      console.error('Error toggling follow:', error);
     }
   };
 
@@ -236,18 +243,10 @@ const UserProfile = ({navigation}) => {
           <View style={styles.profileButtons}>
             {/* Edit Profile Button */}
             <TouchableOpacity
-              style={styles.iconButton}
+              style={styles.editButton}
               onPress={() => navigation.navigate('ProfileEdit')}
             >
               <MaterialCommunityIcons name="pencil" size={24} color="black" />
-            </TouchableOpacity>
-
-            {/* Saved Posts Button */}
-            <TouchableOpacity
-              style={[styles.iconButton, { marginTop: 10 }]}
-              onPress={() => navigation.navigate('SavedPosts')}
-            >
-              <MaterialCommunityIcons name="bookmark" size={24} color="black" />
             </TouchableOpacity>
           </View>
         </View>
@@ -372,14 +371,21 @@ const styles = StyleSheet.create({
       height: 130,
       resizeMode: 'cover',
   },
+  profileWrapper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    position: 'relative',
+    width: '100%',
+  },
   profilePicture: {
-      width: 100,
-      height: 100,
-      borderRadius: 50,
-      borderWidth: 3,
-      borderColor: 'white',
-      marginTop: -40,
-      zIndex: 1,
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    borderWidth: 3,
+    borderColor: 'white',
+    marginTop: -40,
+    zIndex: 1,
   },
   name: {
       color: '#333',
@@ -546,6 +552,24 @@ const styles = StyleSheet.create({
     color: 'white',
     fontSize: 16,
     textAlign: 'center'
+  },
+  profileButtons: {
+    position: 'absolute',
+    right: 20,
+    top: -30,
+  },
+  editButton: {
+    backgroundColor: 'white',
+    borderRadius: 20,
+    padding: 8,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
   },
 });
 

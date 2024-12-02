@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, TextInput, Image, StyleSheet, TouchableOpacity, Modal, ScrollView } from 'react-native';
 import { FontAwesome, MaterialCommunityIcons } from '@expo/vector-icons';
-import { collection, getDocs, query, where, doc, getDoc, updateDoc } from 'firebase/firestore';
+import { collection, getDocs, query, where, doc, getDoc, updateDoc, addDoc, serverTimestamp } from 'firebase/firestore';
 import { db, auth } from '../firebaseConfig';
 
 export default function SearchScreen() {
@@ -43,6 +43,8 @@ export default function SearchScreen() {
 
   const handleFollowToggle = async (userId) => {
     try {
+      console.log('Starting follow toggle for userId:', userId);
+
       const currentUserRef = doc(db, 'users', auth.currentUser.uid);
       const targetUserRef = doc(db, 'users', userId);
       
@@ -52,6 +54,9 @@ export default function SearchScreen() {
       if (currentUserSnap.exists() && targetUserSnap.exists()) {
         const currentUserData = currentUserSnap.data();
         const targetUserData = targetUserSnap.data();
+
+        console.log('Current user data:', currentUserData);
+        console.log('Target user data:', targetUserData);
 
         const currentFollowing = currentUserData.following || [];
         const targetFollowers = targetUserData.followers || [];
@@ -75,6 +80,26 @@ export default function SearchScreen() {
           await updateDoc(currentUserRef, { following: updatedFollowing});
           await updateDoc(targetUserRef, { followers: updatedFollowers});
 
+          try {
+            const notificationsRef = collection(db, 'notifications');
+            const notificationData = {
+              type: 'follow',
+              senderId: auth.currentUser.uid,
+              recipientId: userId,
+              senderName: currentUserData.userName || 'User',
+              senderProfilePic: currentUserData.profilePictureUrl || 'https://via.placeholder.com/40',
+              createdAt: serverTimestamp()
+            };
+
+            console.log('Creating notification with data:', notificationData);
+
+            const notificationDoc = await addDoc(notificationsRef, notificationData);
+            console.log('Notification created with ID:', notificationDoc.id);
+
+          } catch (notificationError) {
+            console.error('Error creating notification:', notificationError);
+          }
+
           setSelectedUserProfile(prevState => ({
             ...prevState,
             followers: updatedFollowers,
@@ -83,7 +108,8 @@ export default function SearchScreen() {
         }
       }
     } catch (error) {
-      console.error("Error updating follow state: ", error);
+      console.error('Error in handleFollowToggle:', error);
+      Alert.alert('Error', 'Failed to update follow status');
     }
   };
 
