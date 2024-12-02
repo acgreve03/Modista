@@ -2,13 +2,18 @@ import React, { useEffect, useState } from 'react';
 import { View, Text, FlatList, Image, StyleSheet, TouchableOpacity, Alert } from 'react-native';
 import { getFirestore, collection, query, where, orderBy, onSnapshot, addDoc, serverTimestamp, getDoc, doc, updateDoc } from 'firebase/firestore';
 import { getAuth } from 'firebase/auth';
+import { useNavigation } from '@react-navigation/native';
 
 const auth = getAuth();
 const db = getFirestore();
 
 const NotificationItem = ({ notification, onFollowBack, currentUserFollowing }) => {
+  const navigation = useNavigation();
   const isFollowNotification = notification.type === 'follow';
   const alreadyFollowing = currentUserFollowing.includes(notification.senderId);
+  const showPostImage = notification.type === 'like' || notification.type === 'comment';
+
+  console.log('Rendering notification:', notification); // Debug log
 
   const getNotificationText = () => {
     switch (notification.type) {
@@ -24,7 +29,15 @@ const NotificationItem = ({ notification, onFollowBack, currentUserFollowing }) 
   };
 
   return (
-    <View style={styles.notificationContainer}>
+    <TouchableOpacity 
+      style={styles.notificationContainer}
+      onPress={() => {
+        if (showPostImage) {
+          navigation.navigate('PostDetailsScreen', { postId: notification.postId });
+        }
+      }}
+      disabled={isFollowNotification}
+    >
       <Image 
         source={{ uri: notification.senderProfilePic || 'https://via.placeholder.com/40' }}
         style={styles.avatar}
@@ -38,6 +51,15 @@ const NotificationItem = ({ notification, onFollowBack, currentUserFollowing }) 
           {getRelativeTime(notification.createdAt?.toDate())}
         </Text>
       </View>
+      {showPostImage && notification.postImage && (
+        <View style={styles.postImageContainer}>
+          <Image 
+            source={{ uri: notification.postImage }}
+            style={styles.postThumbnail}
+            resizeMode="cover"
+          />
+        </View>
+      )}
       {isFollowNotification && !alreadyFollowing && (
         <TouchableOpacity 
           style={styles.followButton}
@@ -46,7 +68,7 @@ const NotificationItem = ({ notification, onFollowBack, currentUserFollowing }) 
           <Text style={styles.followButtonText}>Follow Back</Text>
         </TouchableOpacity>
       )}
-    </View>
+    </TouchableOpacity>
   );
 };
 
@@ -271,7 +293,21 @@ const styles = StyleSheet.create({
   emptyText: {
     color: '#666',
     fontSize: 16,
-  }
+  },
+  postImageContainer: {
+    width: 50,
+    height: 50,
+    marginLeft: 'auto',
+    marginRight: 10,
+    borderRadius: 5,
+    overflow: 'hidden',
+    backgroundColor: '#f0f0f0',
+  },
+  postThumbnail: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 5,
+  },
 });
 
 export default NotificationScreen;

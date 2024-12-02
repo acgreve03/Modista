@@ -17,32 +17,33 @@ const PostDetailsScreen = ({ route, navigation }) => {
     const [isSaved, setIsSaved] = useState(false);
 
     const createNotification = async (type, recipientId, postId, commentText = null) => {
-        if (!auth.currentUser) return; // Safety check
+        if (!auth.currentUser) return;
         
         try {
-            // Get current user's data
             const userRef = doc(db, 'users', auth.currentUser.uid);
             const userSnap = await getDoc(userRef);
             const userData = userSnap.data();
 
-            // Create notification object
+            const postRef = doc(db, 'posts', postId);
+            const postSnap = await getDoc(postRef);
+            const postData = postSnap.data();
+
+            console.log('Post data for notification:', postData); // Debug log
+
             const notificationData = {
-                type, // 'like' or 'comment'
+                type,
                 senderId: auth.currentUser.uid,
                 recipientId,
+                senderName: userData.userName,
+                senderProfilePic: userData.profilePictureUrl,
                 postId,
-                senderName: userData.userName || 'User',
-                senderProfilePic: userData.profilePictureUrl || 'https://via.placeholder.com/40',
-                commentText,
-                createdAt: serverTimestamp(),
-                read: false
+                postImage: postData.itemImage,
+                commentText: type === 'comment' ? commentText : null,
+                createdAt: serverTimestamp()
             };
 
-            // Add notification to collection
-            const notificationsRef = collection(db, 'notifications');
-            await addDoc(notificationsRef, notificationData);
-            
-            console.log(`${type} notification created for user ${recipientId}`);
+            console.log('Creating notification with data:', notificationData); // Debug log
+            await addDoc(collection(db, 'notifications'), notificationData);
         } catch (error) {
             console.error('Error creating notification:', error);
         }
@@ -95,13 +96,6 @@ const PostDetailsScreen = ({ route, navigation }) => {
 
                 if (postData.likes?.includes(auth.currentUser?.uid)) {
                     setLiked(true);
-                }
-
-                // Check saved status
-                if (auth.currentUser) {
-                    const isSavedByUser = postData.saves?.includes(auth.currentUser.uid) || false;
-                    console.log('Initial saved status:', isSavedByUser); // Debug log
-                    setIsSaved(isSavedByUser);
                 }
             } else {
                 console.error('Post not found');
@@ -217,50 +211,38 @@ const PostDetailsScreen = ({ route, navigation }) => {
     };
 
     const handleLike = async () => {
-        console.log('handleLike started');
-        if (!currentUser || !post) {
-            console.log('No currentUser or post:', { currentUser, post });
-            return;
-        }
+        if (!currentUser || !post) return;
 
         try {
-            console.log('Attempting to update like status');
             const postRef = doc(db, 'posts', postId);
 
             if (liked) {
-                console.log('Removing like');
                 await updateDoc(postRef, {
                     likes: arrayRemove(currentUser.uid),
                 });
-                setPost((prevPost) => ({
+                setPost(prevPost => ({
                     ...prevPost,
-                    likes: prevPost.likes.filter((uid) => uid !== currentUser.uid),
+                    likes: prevPost.likes.filter(uid => uid !== currentUser.uid),
                 }));
                 setLiked(false);
             } else {
-                console.log('Adding like');
                 await updateDoc(postRef, {
                     likes: arrayUnion(currentUser.uid),
                 });
-                setPost((prevPost) => ({
+                setPost(prevPost => ({
                     ...prevPost,
                     likes: [...(prevPost.likes || []), currentUser.uid],
                 }));
                 setLiked(true);
 
-                // Create notification for like (only if the post isn't the current user's)
+                // Only create notification if it's not the user's own post
                 if (post.userId !== currentUser.uid) {
-                    console.log('Creating notification for:', { recipientId: post.userId, postId });
-                    try {
-                        await createNotification('like', post.userId, postId);
-                    } catch (notifError) {
-                        console.error('Error in createNotification:', notifError);
-                    }
+                    console.log('Post data before notification:', post); // Debug log
+                    await createNotification('like', post.userId, postId);
                 }
             }
         } catch (error) {
             console.error('Error in handleLike:', error);
-            console.error('Error stack:', error.stack);
         }
     };
 
