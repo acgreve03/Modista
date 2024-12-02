@@ -34,65 +34,138 @@ export default function SearchScreen() {
 
   const handleSearch = async (text) => {
     setSearchQuery(text);
-
-    let filteredResults = [];
-    if (text) {
-      filteredResults = outfits.filter(
-        (item) =>
-          item.name.toLowerCase().includes(text.toLowerCase()) ||
-          item.category.toLowerCase().includes(text.toLowerCase())
-      );
-
-      // If no exact matches, recommend items based on collaborative filtering
-      if (filteredResults.length === 0) {
-        const relatedItems = collaborativeData[text];
-        if (relatedItems) {
-          filteredResults = outfits.filter((item) =>
-          relatedItems.includes(item.name)
-          );
-        }
-      }
-
-      // Apply a weighted scoring system to rank results by popularity and relevance
-      filteredResults = filteredResults.map((item) => ({
-        ...item,
-        score:
-        item.views / 100 + (recentSearches.includes(item.category) ? 2 : 0),
-      }));
-
-      //Sort by highest score
-      filteredResults.sort((a, b) => b.score - a.score);
-    } else {
-      // Show popular items if no search query
-      filteredResults = outfits.sort((a, b) => b.views - a.views);
-    }
-
-    setResults(filteredResults);
-
-    if (text.trim() === '') {
-      setUserResults([]);
-      return;
-    }
     setIsSearching(true);
-    try {
-      const usersCollection = collection(db, 'users');
-      const usersQuery = query(
-        usersCollection,
-        where('userName', '>=', text),
-        where('userName', '<=', text + '\uf8ff')
-      );
-      const snapshot = await getDocs(usersQuery);
 
-      const results = snapshot.docs.map((doc) => ({
-        id: doc.id,
-        ...doc.data(),
-      }));
-      setUserResults(results);
+    try {
+        // Search for users first
+        const users = await searchUsers(text);
+        setUserResults(users);
+        console.log('User results:', users); // Debug log
+
+        // Then search for outfits
+        const outfits = await searchOutfits(text);
+        setResults(outfits);
+
     } catch (error) {
-      console.error('Error fetching users:', error);
+        console.error('Error in search:', error);
     } finally {
-      setIsSearching(false);
+        setIsSearching(false);
     }
+  };
+
+  const searchUsers = async (searchText) => {
+    if (searchText.trim() === '') return [];
+
+    try {
+        const usersCollection = collection(db, 'users');
+        const snapshot = await getDocs(usersCollection);
+        
+        // Filter users based on starting characters
+        const users = snapshot.docs
+            .map(doc => ({
+                id: doc.id,
+                ...doc.data(),
+            }))
+            .filter(user => {
+                const searchLower = searchText.toLowerCase();
+                const userName = user.userName?.toLowerCase() || '';
+                const firstName = user.firstName?.toLowerCase() || '';
+                const lastName = user.lastName?.toLowerCase() || '';
+                
+                // Check if any field starts with the search text
+                return userName.startsWith(searchLower) ||
+                       firstName.startsWith(searchLower) ||
+                       lastName.startsWith(searchLower);
+            });
+
+        return users;
+
+    } catch (error) {
+        console.error('Error searching users:', error);
+        return [];
+    }
+  };
+
+  const searchOutfits = async (searchText) => {
+    if (searchText.trim() === '') {
+      return getPopularOutfits();
+    }
+
+    const outfitsRef = collection(db, 'outfits');
+    const q = query(outfitsRef);
+    const querySnapshot = await getDocs(q);
+    const allOutfits = querySnapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data()
+    }));
+
+    // Score and filter outfits
+    const scoredOutfits = allOutfits.map(outfit => ({
+      ...outfit,
+      score: calculateOutfitScore(outfit, searchText)
+    }))
+    .filter(outfit => outfit.score > 0)
+    .sort((a, b) => b.score - a.score);
+
+    return scoredOutfits;
+  };
+
+  const calculateOutfitScore = (outfit, query) => {
+    let score = 0;
+    const searchTerms = query.toLowerCase().split(' ');
+
+    // Base relevance scoring
+    searchTerms.forEach(term => {
+      // Match against name
+      if (outfit.name?.toLowerCase().includes(term)) score += 10;
+      
+      // Match against category
+      if (outfit.category?.toLowerCase().includes(term)) score += 8;
+      
+      // Match against description
+      if (outfit.description?.toLowerCase().includes(term)) score += 5;
+      
+      // Match against tags
+      if (outfit.tags?.some(tag => tag.toLowerCase().includes(term))) score += 7;
+    });
+
+    // Popularity boost
+    score += (outfit.views || 0) / 100;
+    score += (outfit.likes || 0) / 50;
+    score += (outfit.saves || 0) / 25;
+
+    // Recency boost (if created within last 7 days)
+    const daysSinceCreation = (Date.now() - outfit.createdAt?.toDate()) / (1000 * 60 * 60 * 24);
+    if (daysSinceCreation < 7) {
+      score += (7 - daysSinceCreation) / 2;
+    }
+
+    // Collaborative filtering boost
+    if (recentSearches.includes(outfit.category)) {
+      score += 5;
+    }
+
+    return score;
+  };
+
+  const getPopularOutfits = async () => {
+    const outfitsRef = collection(db, 'outfits');
+    const querySnapshot = await getDocs(outfitsRef);
+    const allOutfits = querySnapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data()
+    }));
+
+    // Sort by popularity score
+    return allOutfits
+      .map(outfit => ({
+        ...outfit,
+        popularityScore: 
+          (outfit.views || 0) / 100 + 
+          (outfit.likes || 0) / 50 + 
+          (outfit.saves || 0) / 25
+      }))
+      .sort((a, b) => b.popularityScore - a.popularityScore);
   };
 
   const dataToDisplay = results.length > 0 ? results : outfits;
@@ -198,30 +271,43 @@ export default function SearchScreen() {
       {isFocused || searchQuery ? (
         results.length > 0 || userResults.length > 0 ? (
           <ScrollView>
-            <View style={styles.grid}>
-            {dataToDisplay.map((outfit) => (
-              <View key={outfit.id} style={styles.outfitCard}>
-                <Image source={{ uri: outfit.image }} style={styles.outfitImage} />
-                <Text style={styles.outfitName}>{outfit.name}</Text>
-              </View>
-            ))}
-            </View>
-            {userResults.map((user) => (
-              <TouchableOpacity
-                key={user.id}
-                style={styles.userCard}
-                onPress={() => openUserProfileModal(user.id)}
-              >
-                <Image
-                  source={{ uri: user.profilePictureUrl || 'https://via.placeholder.com/150' }}
-                  style={styles.userAvatar}
-                />
-                <Text style={styles.userName}>{user.userName}</Text>
-              </TouchableOpacity>
-            ))}
+            {userResults.length > 0 && (
+                <View>
+                    <Text style={styles.sectionTitle}>Users</Text>
+                    {userResults.map((user) => (
+                        <TouchableOpacity
+                            key={user.id}
+                            style={styles.userCard}
+                            onPress={() => openUserProfileModal(user.id)}
+                        >
+                            <Image
+                                source={{ uri: user.profilePictureUrl || 'https://via.placeholder.com/150' }}
+                                style={styles.userAvatar}
+                            />
+                            <Text style={styles.userName}>{user.userName}</Text>
+                        </TouchableOpacity>
+                    ))}
+                </View>
+            )}
+            
+            {results.length > 0 && (
+                <View>
+                    <Text style={styles.sectionTitle}>Outfits</Text>
+                    <View style={styles.grid}>
+                        {results.map((outfit) => (
+                            <View key={outfit.id} style={styles.outfitCard}>
+                                <Image source={{ uri: outfit.image }} style={styles.outfitImage} />
+                                <Text style={styles.outfitName}>{outfit.name}</Text>
+                            </View>
+                        ))}
+                    </View>
+                </View>
+            )}
           </ScrollView>
         ) : (
-          <Text style={styles.noResultsText}>No results found</Text>
+          <View style={styles.noResultsContainer}>
+            <Text style={styles.noResultsText}>No results found</Text>
+          </View>
         )
       ) : (
         <>
@@ -335,10 +421,10 @@ const styles = StyleSheet.create({
     color: '#333',
   },
   sectionTitle: {
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: 'bold',
-    marginHorizontal: 16,
-    marginTop: 20,
+    marginVertical: 10,
+    paddingHorizontal: 16,
   },
   grid: {
     flexDirection: 'row',
@@ -368,10 +454,16 @@ const styles = StyleSheet.create({
     color: '#888',
     marginVertical: 8,
   },
+  noResultsContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingTop: 40,
+  },
   noResultsText: {
+    fontSize: 16,
+    color: '#666',
     textAlign: 'center',
-    color: '#888',
-    marginVertical: 8,
   },
   userCard: {
     flexDirection: 'row',
