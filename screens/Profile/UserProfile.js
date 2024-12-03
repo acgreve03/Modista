@@ -9,6 +9,11 @@ import { auth } from '../../firebaseConfig';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
 
+/**
+ * User Profile component
+ * Displays the user's profile, including their personal information (bio, name, username), their stats(followers and following), and posts.
+ * Also contains navigation to different tabs (outfits, closet, saved) and the ability to view followers or followed user's profiles.
+ */
 const UserProfile = ({navigation}) => {
   const [userProfile, setUserProfile] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -21,6 +26,7 @@ const UserProfile = ({navigation}) => {
   const [isFollowing, setIsFollowing] = useState(false);
   const [posts, setPosts] = useState([]);
 
+  //Fetch and set the current user's profile data
   useFocusEffect(
     React.useCallback(() => {
       const fetchUserProfile = async () => {
@@ -44,6 +50,7 @@ const UserProfile = ({navigation}) => {
     }, [])
   );
 
+  //Fetch followers' data for the current user from Firestore and updates the followers list state
   const fetchFollowers = async () => {
     try {
       const userRef = doc(db, 'users', auth.currentUser.uid);
@@ -51,6 +58,7 @@ const UserProfile = ({navigation}) => {
       if (docSnap.exists()) {
         const followers = docSnap.data().followers || [];
 
+        //Fetch entire profile information for each follower
         const followersData = await Promise.all(
           followers.map(async (followerId) => {
             const followerRef = doc(db, 'users', followerId);
@@ -69,6 +77,7 @@ const UserProfile = ({navigation}) => {
     }
   };
 
+  //Fetches the users that the current user is following from Firestore and updates the following list state
   const fetchFollowing = async () => {
     try {
       const userRef = doc(db, 'users', auth.currentUser.uid);
@@ -76,6 +85,7 @@ const UserProfile = ({navigation}) => {
       if (docSnap.exists()) {
         const following = docSnap.data().following || [];
         
+        //Fetch entire profile information for each followed user
         const followingData = await Promise.all(
           following.map(async (followingId) => {
             const followingRef = doc(db, 'users', followingId);
@@ -94,6 +104,7 @@ const UserProfile = ({navigation}) => {
     }
   };
 
+  //Toggle follow/unfollow for a specific user depending on if the current user follows them already and updates Firestore data for both users
   const handleFollowToggle = async (userId) => {
     try {
       const currentUserRef = doc(db, 'users', auth.currentUser.uid);
@@ -152,6 +163,7 @@ const UserProfile = ({navigation}) => {
     }
   };
 
+  //Real-time listener for following and followers
   useEffect(() => {
     const unsubscribeFollowers = onSnapshot(
       doc(db, 'users', auth.currentUser.uid),
@@ -215,10 +227,10 @@ const UserProfile = ({navigation}) => {
   }
   };
 
-useEffect(() => {
-  if (selectedUserProfile) {
-    fetchUserPosts(selectedUserProfile.id);
-  }
+  useEffect(() => {
+    if (selectedUserProfile) {
+      fetchUserPosts(selectedUserProfile.id);
+    }
   }, [selectedUserProfile]);
 
   if (loading) {
@@ -247,6 +259,10 @@ useEffect(() => {
     }
   };
 
+  /**
+   * This is the public profile component that handles rendering a selected user's public profile containing all of their personal information
+   * following and follower stats, and posts that they've made and displaying it in a modal.
+   */
   const PublicProfile = ({ userProfile, isFollowing, handleFollowToggle}) => (
     <View style={styles.publicProfileContainer}>
       <View style={styles.publicProfilePictureWrapper}>
@@ -268,6 +284,7 @@ useEffect(() => {
         <Text style={styles.followButtonText}>{isFollowing ? 'Unfollow' : 'Follow'}</Text>
       </TouchableOpacity>
   
+      {/* posts grid */}
       <View style={styles.postsContainer}>
         <Text style={styles.postsTitle}>Posts</Text>
         <FlatList
@@ -356,6 +373,7 @@ useEffect(() => {
         </View>
         {renderTabContent()}
 
+        {/* Following and followers list */}
         <Modal visible={isModalVisible} animationType="slide" onRequestClose={closeModal}>
           <View style={styles.modalContent}>
             <View style={StyleSheet.modalHeader}>
