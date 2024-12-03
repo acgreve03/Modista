@@ -4,6 +4,20 @@ import { doc, getDoc, updateDoc, addDoc, collection, getDocs, arrayUnion, arrayR
 import { db, auth } from '../firebaseConfig';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 
+/**
+ * PostDetailsScreen Component
+ *
+ * Description:
+ * - Displays details of a specific post including its image, caption, and engagement metrics (likes, comments, and saves).
+ * - Allows users to engage with the post by liking, saving, or adding comments.
+ * - Provides functionality for the post owner to delete the post.
+ * 
+ * Features:
+ * - Fetches post details, user data, and comments from Firestore.
+ * - Supports liking/unliking posts, saving/unsaving posts, and adding/deleting comments.
+ * - Allows the post owner to delete the post.
+ * - Sends notifications for likes and comments to the post owner.
+ */
 const PostDetailsScreen = ({ route, navigation }) => {
     const { postId } = route.params;
     const [post, setPost] = useState(null);
@@ -16,6 +30,7 @@ const PostDetailsScreen = ({ route, navigation }) => {
     const [modalVisible, setModalVisible] = useState(false);
     const [isSaved, setIsSaved] = useState(false);
 
+    //Create notification to notify user of post interaction
     const createNotification = async (type, recipientId, postId, commentText = null) => {
         if (!auth.currentUser) return;
         
@@ -79,6 +94,7 @@ const PostDetailsScreen = ({ route, navigation }) => {
         checkIfSaved();
     }, [post, currentUser]);
 
+    // Fetch post details from Firestore
     const fetchPostDetails = async (postId) => {
         try {
             setLoading(true);
@@ -107,6 +123,7 @@ const PostDetailsScreen = ({ route, navigation }) => {
         }
     };
 
+    // Fetch user profile data for the post owner
     const fetchUserData = async (userId) => {
         try {
             const userRef = doc(db, 'users', userId);
@@ -122,6 +139,7 @@ const PostDetailsScreen = ({ route, navigation }) => {
         }
     };
 
+    // Fetch comments for the post
     const fetchComments = async (postId) => {
         try {
             const commentsRef = collection(db, `posts/${postId}/comments`);
@@ -150,7 +168,7 @@ const PostDetailsScreen = ({ route, navigation }) => {
         }
     };
 
-
+    //Handle post delete and remove from firestore
     const handleDeletePost = async () => {
         try {
             Alert.alert(
@@ -181,6 +199,7 @@ const PostDetailsScreen = ({ route, navigation }) => {
         }
     };
 
+    //Add new comment to post and save in firestore
     const addComment = async () => {
         if (!newComment.trim()) return;
 
@@ -193,7 +212,7 @@ const PostDetailsScreen = ({ route, navigation }) => {
             await addDoc(commentsRef, {
                 userId: currentUser.uid,
                 text: newComment.trim(),
-                timestamp: new Date().toISOString(),
+                timestamp: Timestamp.now(),
                 username: userData.userName,
                 userProfilePic: userData.profilePictureUrl
             });
@@ -210,6 +229,7 @@ const PostDetailsScreen = ({ route, navigation }) => {
         }
     };
 
+    // Toggle like for the post
     const handleLike = async () => {
         if (!currentUser || !post) return;
 
@@ -246,6 +266,7 @@ const PostDetailsScreen = ({ route, navigation }) => {
         }
     };
 
+    //Save specific post to the user's saved posts
     const handleSavePost = async () => {
         if (!currentUser) return;
         
