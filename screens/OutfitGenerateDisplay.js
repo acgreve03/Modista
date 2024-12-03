@@ -6,8 +6,8 @@ import {  addDoc, doc, getDoc, collection, getDocs } from 'firebase/firestore';
 import { db, auth } from '../firebaseConfig';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { storage } from '../firebaseConfig'; // Adjust the path to your firebaseConfig file
-import { captureRef, captureScreen } from 'react-native-view-shot';
-import SavedOutfitPage from '../screens/Profile/Saved';
+import { captureScreen } from 'react-native-view-shot';
+//import SavedOutfitPage from '../screens/Profile/Saved';
 import * as Location from 'expo-location';
 
 
@@ -355,9 +355,9 @@ export const generateOutfit = async (closetItems, season, occasion) => {
     }
   
     // Step 2: Randomly select a top
-    const tops = filteredItems.filter(item => item.category === 'Top');
-    const bottoms = filteredItems.filter(item => item.category === 'Bottom');
-    const shoes = filteredItems.filter(item => item.category === 'Shoes');
+    const tops = filteredItems.filter(item => item.category === 'Top' || item.category === 'Tops');
+    const bottoms = filteredItems.filter(item => item.category === 'Bottom' || item.category === 'Bottoms');
+    const shoes = filteredItems.filter(item => item.category === 'Shoes' || item.category === 'Shoe');
     const accessories = filteredItems.filter(item => item.category === 'Accessory');
   
     console.log(tops?.season)
