@@ -7,6 +7,24 @@ import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import * as ImagePicker from 'expo-image-picker';
 import { CommonActions } from '@react-navigation/native';
 
+/**
+ * ProfileCreation Component
+ *
+ * **Description**:
+ * - Allows users to create a profile after registration.
+ * - Users can upload a profile picture and header image, enter personal details, and set a unique username.
+ * - Saves the profile data to Firestore and uploads images to Firebase Storage.
+ * - Validates username availability to ensure uniqueness.
+ *
+ * **Features**:
+ * - Image picker for profile picture and header image (supports camera and gallery).
+ * - Input fields for first name, last name, username, and bio.
+ * - Firebase integration:
+ *   - Stores profile details in Firestore under `users` collection.
+ *   - Uploads images to Firebase Storage and retrieves their URLs.
+ * - Username validation ensures it is not already in use.
+ * - Navigation resets to the main application upon successful profile creation.
+ */
 export default function ProfileCreation({ navigation, route }) {
   const { user } = route.params.user;
 
@@ -16,10 +34,16 @@ export default function ProfileCreation({ navigation, route }) {
   const [headerImageUrl, setHeaderImageUrl] = useState(null);
   const [loading, setLoading] = useState(false);
 
+  // Request permissions for camera and gallery access on mount
   useEffect(() => {
     requestPermissions();
   }, []);
 
+  /**
+   * Submits the profile data.
+   * - Validates username availability.
+   * - Saves profile data and uploads images to Firestore/Storage.
+   */
   const onSubmit = async (data) => {
     try {
       const userRef = doc(db, 'users', user.uid);
@@ -75,6 +99,9 @@ export default function ProfileCreation({ navigation, route }) {
     );
   }
 
+  /**
+   * Checks if the given username is available in Firestore.
+   */
   const checkUsernameAvailability = async (username) => {
     try {
       const usersRef = collection(db, 'users');
@@ -142,6 +169,7 @@ export default function ProfileCreation({ navigation, route }) {
     }
   };
 
+  //Uploads the selected image to Firebase Storage.
   const uploadImage = async (uri) => {
     try {
       const response = await fetch(uri);
@@ -156,6 +184,7 @@ export default function ProfileCreation({ navigation, route }) {
     }
   };
 
+  //Requests camera and library permissions
   const requestPermissions = async () => {
     const { status: cameraStatus } = await ImagePicker.requestCameraPermissionsAsync();
     const { status: galleryStatus } = await ImagePicker.requestMediaLibraryPermissionsAsync();

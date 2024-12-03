@@ -13,6 +13,22 @@ const GOOGLE_API_KEY = "AIzaSyAGRWVBWp-pJH9KD4XB2yedmv-2VQafbV4"
 const CHATGPT_API_KEY = "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"
 const REMOVE_BG_API_KEY = "q9wrwRUWDZb8D9jfKcakubeY"
 
+/**
+ * AddToCloset Component
+ *
+ * **Description**:
+ * - Allows users to add items to their virtual closet by selecting an image from the camera or gallery.
+ * - Analyzes the image to extract details like category, subcategory, color, occasion, and season using AI.
+ * - Saves the analyzed data along with the image to Firestore under the user's closet.
+ *
+ * **Features**:
+ * - Image selection from the camera or gallery.
+ * - Automatic image analysis to extract clothing details.
+ * - Firebase integration:
+ *   - Uploads the image to Firebase Storage.
+ *   - Saves item details to Firestore.
+ * - Handles user authentication to associate items with the logged-in user.
+ */
 export default function AddToCloset({navigation}) {
 
     const [buttonPressed, setButtonPressed] = useState(false);
@@ -26,7 +42,7 @@ export default function AddToCloset({navigation}) {
     const [occasion, setOccasion] = useState('');
     const [season, setSeason] = useState('');
   
-  
+    //Check authentication
     useEffect(() => {
 
         const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
@@ -86,7 +102,7 @@ export default function AddToCloset({navigation}) {
       }
     };
   
-    
+    //Handle submit. Uploads closet item to firebase
     const onSubmit = async (data) => {
 
       if (!user) {
@@ -154,7 +170,6 @@ export default function AddToCloset({navigation}) {
         if (!result.canceled) {
           const { uri } = result.assets[0];
           setClosetItemUrl(uri);
-          //await handleAnalyzeImage();
         }
       } catch (error) {
         console.error('Error picking image:', error);
@@ -183,7 +198,7 @@ export default function AddToCloset({navigation}) {
     };
 
     
-  
+    //Uploads actual item image to firebase storage
     const uploadImage = async (uri) => {
       try {
           console.log('Image URI:', uri);
