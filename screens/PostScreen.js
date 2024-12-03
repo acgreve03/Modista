@@ -1,10 +1,24 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, TextInput, Image, FlatList, ActivityIndicator, Modal, KeyboardAvoidingView, ScrollView, Platform } from 'react-native';
-import { collection, addDoc, getDocs } from 'firebase/firestore';
+import { collection, addDoc, getDocs, Timestamp } from 'firebase/firestore';
 import { db, auth } from '../firebaseConfig';
 import { onAuthStateChanged } from 'firebase/auth';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 
+/**
+ * PostScreen Component
+ *
+ * **Description**:
+ * - Enables users to create a post by selecting an item from their closet or outfits and writing a caption.
+ * - Includes modals to browse and select items from closet and outfits.
+ * - Posts are saved to Firestore with item details, caption, and timestamp.
+ *
+ * **Features**:
+ * - Fetch closet items and outfits for the logged-in user from Firestore.
+ * - Display selected item details and allow users to input a caption.
+ * - Supports posting the selected item with a caption to Firestore.
+ * - Includes modals for selecting items from the closet or outfits.
+ */
 const PostScreen = ({ navigation }) => {
     const [user, setUser] = useState(null);
     const [closetItems, setClosetItems] = useState([]);
@@ -16,6 +30,7 @@ const PostScreen = ({ navigation }) => {
     const [outfitModalVisible, setOutfitModalVisible] = useState(false);
     const [buttonPressed, setButtonPressed] = useState(false);
 
+    // Check user authentication and fetch data on component mount
     useEffect(() => {
         const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
             if (currentUser) {
@@ -30,6 +45,7 @@ const PostScreen = ({ navigation }) => {
         return () => unsubscribe();
     }, []);
 
+    // Fetch and map closet items from Firestore
     const fetchClosetItems = async (uid) => {
         try {
             setLoading(true);
@@ -49,6 +65,7 @@ const PostScreen = ({ navigation }) => {
         }
     };
 
+    // Fetch and map outfits from Firestore
     const fetchOutfits = async (uid) => {
         try {
             setLoading(true);
@@ -68,6 +85,7 @@ const PostScreen = ({ navigation }) => {
         }
     };
 
+    // Handle post creation
     const handlePost = async () => {
         if (!selectedItem || !caption.trim()) {
             alert('Please select an item and write a caption.');
@@ -77,13 +95,14 @@ const PostScreen = ({ navigation }) => {
         try {
             setLoading(true);
             const postsRef = collection(db, 'posts');
-
+            
+            // Add new post document to Firestore
             await addDoc(postsRef, {
                 userId: user.uid,
                 itemId: selectedItem.id,
                 itemImage: selectedItem.closetItemUrl || selectedItem.outfitImageUrl,
                 caption,
-                timestamp: new Date().toISOString(),
+                timestamp: Timestamp.now(),
             });
 
             setLoading(false);
