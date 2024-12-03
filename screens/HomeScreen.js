@@ -5,8 +5,7 @@ import {
   Image, 
   StyleSheet, 
   Dimensions, 
-  TouchableOpacity, 
-  Text 
+  TouchableOpacity,  
 } from 'react-native';
 import { db } from '../firebaseConfig';
 import { collection, getDocs, query, orderBy } from 'firebase/firestore';
@@ -15,15 +14,33 @@ import { useNavigation } from '@react-navigation/native';
 const screenWidth = Dimensions.get('window').width;
 const COLUMN_WIDTH = (screenWidth - 48) / 2;
 
+/**
+ * HomeScreen Component
+ *
+ * Description:
+ * - Displays a grid of posts fetched from Firestore in a Pinterest-style layout.
+ * - Allows navigation to a detailed view of a post.
+ *
+ * Features:
+ * - Fetches posts from Firestore in descending order of their timestamps.
+ * - Displays posts in a two-column grid.
+ * - Supports navigation to a detailed post view (`PostDetailsScreen`).
+ */
 export default function HomeScreen() {
   const [posts, setPosts] = useState([]);
   const [loading, setLoading] = useState(true);
   const navigation = useNavigation();
 
+  // Fetch posts from Firestore on component mount
   useEffect(() => {
     fetchPosts();
   }, []);
 
+    /**
+   * Fetch posts from Firestore
+   * - Retrieves posts collection from Firestore ordered by `timestamp` in descending order.
+   * - Maps Firestore documents to an array of post objects and updates state.
+   */
   const fetchPosts = async () => {
     try {
       const postsRef = collection(db, 'posts');
@@ -43,6 +60,12 @@ export default function HomeScreen() {
     }
   };
 
+
+  /**
+   * Render an individual post as a grid item (pin)
+   * - Displays the post's image.
+   * - Navigates to `PostDetailsScreen` when the pin is pressed.
+   */
   const renderPin = ({ item }) => (
     <TouchableOpacity
       style={styles.pin}
@@ -95,6 +118,7 @@ const styles = StyleSheet.create({
     shadowRadius: 3,
   },
   pinImage: {
-    backgroundColor: '#e1e1e1',
+    backgroundColor: 'light gray',
+    resizeMode: 'contain'
   },
 });
