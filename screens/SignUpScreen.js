@@ -4,13 +4,33 @@ import { useForm, Controller } from 'react-hook-form';
 import { auth } from '../firebaseConfig';
 import { createUserWithEmailAndPassword } from 'firebase/auth';
 
+/**
+ * SignUpScreen Component
+ *
+ * **Description**:
+ * - A registration screen for new users to create an account.
+ * - Validates email and password with specific requirements before user creation.
+ * - Uses Firebase Authentication to create new users.
+ * - Redirects the user to the Profile Creation screen upon successful registration.
+ *
+ * **Features**:
+ * - Email and password validation with error feedback.
+ * - Password validation includes checks for:
+ *   - Minimum length of 8 characters.
+ *   - At least one uppercase letter.
+ *   - At least one lowercase letter.
+ *   - At least one number.
+ *   - At least one special character.
+ * - Integration with Firebase Authentication to register the user.
+ * - A visually responsive button with pressed-state feedback.
+ */
 export default function SignUpScreen({ navigation }) {
 
   const { control, handleSubmit, formState: { errors } } = useForm();
   const [buttonPressed, setButtonPressed] = useState(false);
   const [password, setPassword] = useState('');
 
-
+  // Password strength validation rules
   const passwordRequirements = {
     length: password.length >= 8,
     uppercase: /[A-Z]/.test(password),
@@ -19,7 +39,12 @@ export default function SignUpScreen({ navigation }) {
     specialChar: /[!@#$%^&*(),.?":{}|<>]/.test(password)
   };
   
-
+  /**
+   * Handles the form submission.
+   * - Validates the password against requirements.
+   * - Creates a new user with Firebase Authentication.
+   * - Navigates to the Profile Creation screen on success.
+   */
   const onSubmit = async (data) => {
     const { email, password } = data;
 
