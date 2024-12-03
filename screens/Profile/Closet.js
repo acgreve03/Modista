@@ -4,6 +4,18 @@ import { collection, getDocs, doc, deleteDoc } from 'firebase/firestore';
 import { db, auth } from '../../firebaseConfig';
 import { onAuthStateChanged } from 'firebase/auth';
 
+/**
+ * Closet Component
+ * 
+ * Description:
+ * - Displays and manages a user's virtual closet items.
+ * - Supports filtering, viewing details, and deleting items.
+ * 
+ * Features:
+ * - Fetches closet items from Firestore for the logged-in user.
+ * - Filters items by category: All, Top, Bottom, Shoes.
+ * - Shows item details in a modal with options to delete the item.
+ */
 const Closet = () => {
     const [activeFilter, setActiveFilter] = useState('All');
     const [selectedItem, setSelectedItem] = useState(null);
@@ -12,8 +24,10 @@ const Closet = () => {
     const [user, setUser] = useState(null);
     const [buttonPressed, setButtonPressed] = useState(false);
 
-    const categories = ['All', 'Tops', 'Bottoms', 'Dresses'];
+    // Define the available filter categories
+    const categories = ['All', 'Top', 'Bottom', 'Shoes'];
 
+    // Monitor authentication state and fetch closet items for the logged-in user
     useEffect(() => {
         const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
             if (currentUser) {
@@ -29,6 +43,7 @@ const Closet = () => {
         return () => unsubscribe();
     }, []);
 
+    // Fetch closet items from Firestore for the given user ID
     const fetchItems = async (uid) => {
         try {
             setLoading(true);
@@ -48,14 +63,17 @@ const Closet = () => {
         }
     };
 
+    // Handle selecting an item to view details in the modal
     const handleSelectItem = (item) => {
         setSelectedItem(item);
     };
 
+    // Close the modal by clearing the selected item
     const handleCloseModal = () => {
         setSelectedItem(null);
     };
 
+    // Handle deleting the currently selected item
     const handleDelete = async () => {
         try {
             Alert.alert(
@@ -86,13 +104,13 @@ const Closet = () => {
         }
     };
 
+    // Filter items based on the selected category
     const filteredItems = activeFilter === 'All'
         ? items
-        : items.filter((item) => item.subcategory?.toLowerCase() === activeFilter.toLowerCase());
+        : items.filter((item) => item.category?.toLowerCase() === activeFilter.toLowerCase());
 
     return (
         <ScrollView contentContainerStyle={styles.container}>
-            <Text style={styles.title}>Your Closet</Text>
             <View style={styles.filterContainer}>
                 {categories.map((category) => (
                     <TouchableOpacity
