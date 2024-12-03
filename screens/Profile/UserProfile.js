@@ -3,11 +3,12 @@ import { View, Text, StyleSheet, Image, TouchableOpacity, ActivityIndicator, Scr
 import Outfits from './Outfits'; // Import the OutfitsGrid component
 import Closet from './Closet'; // Import the Closet component
 import Saved from './Saved'; // Import the Closet component
-import { doc, getDoc, onSnapshot, updateDoc, collection, query, where, getDocs } from 'firebase/firestore';
+import { doc, getDoc, onSnapshot, updateDoc, collection, query, where, getDocs, addDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '../../firebaseConfig';
 import { auth } from '../../firebaseConfig';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
+import { signOut } from 'firebase/auth';
 
 /**
  * User Profile component
@@ -17,7 +18,7 @@ import { useFocusEffect } from '@react-navigation/native';
 const UserProfile = ({navigation}) => {
   const [userProfile, setUserProfile] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [selectedTab, setSelectedTab] = useState('Outfits');
+  const [selectedTab, setSelectedTab] = useState('Posts');
   const [followersList, setFollowersList] = useState([]);
   const [followingList, setFollowingList] = useState([]);
   const [selectedUserProfile, setSelectedUserProfile] = useState(null);
@@ -163,6 +164,19 @@ const UserProfile = ({navigation}) => {
     }
   };
 
+  //Handle log out and direct user back to welcome screen
+  const handleLogout = async () => {
+    try {
+      await signOut(auth);
+      navigation.reset({
+        index: 0,
+        routes: [{ name: 'Welcome' }],
+      });
+    } catch (error) {
+      console.error('Error during logout:', error);
+    }
+  };
+
   //Real-time listener for following and followers
   useEffect(() => {
     const unsubscribeFollowers = onSnapshot(
@@ -198,6 +212,9 @@ const UserProfile = ({navigation}) => {
     const userRef = doc(db, 'users', userId);
     const docSnap = await getDoc(userRef);
     if (docSnap.exists()) {
+      const targetUserData = docSnap.data();
+      const isUserFollowing = targetUserData.followers?.includes(auth.currentUser.uid);
+      setIsFollowing(isUserFollowing);
       setSelectedUserProfile({ id: userId, ...docSnap.data()});
       setIsModalVisible(true);
     }
@@ -241,7 +258,7 @@ const UserProfile = ({navigation}) => {
 
   const renderTabContent = () => {
     switch (selectedTab) {
-        case 'Outfits':
+        case 'Posts':
             return <Outfits />; 
         case 'Closet':
             return <Closet />;
@@ -341,6 +358,11 @@ const UserProfile = ({navigation}) => {
         </View>
         </View>
 
+        {/* Logout Button */}
+        <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
+          <MaterialCommunityIcons name="logout-variant" size={24} color="black" />
+        </TouchableOpacity>
+
         {/* User Info */}
         <Text style={styles.name}>{`${userProfile?.firstName} ${userProfile?.lastName}`}</Text>
         <Text style={styles.bio}>{userProfile?.bio || 'Modista User'}</Text>
@@ -358,7 +380,7 @@ const UserProfile = ({navigation}) => {
 
         {/* Profile Tabs */}
         <View style={styles.tabsContainer}>
-          {['Outfits', 'Closet', 'Saved'].map((tab) => (
+          {['Posts', 'Closet', 'Saved'].map((tab) => (
             <TouchableOpacity
               key={tab}
               style={[styles.tab, selectedTab === tab && styles.activeTab]}
@@ -382,7 +404,10 @@ const UserProfile = ({navigation}) => {
               </Text>
             </View>
               {selectedUserProfile ? (
-                <PublicProfile userProfile={selectedUserProfile} />
+                <PublicProfile 
+                userProfile={selectedUserProfile}
+                isFollowing={isFollowing}
+                handleFollowToggle={handleFollowToggle} />
               ) : (
                 <FlatList
                   data={modalType === 'followers' ? followersList : followingList}
@@ -636,7 +661,7 @@ const styles = StyleSheet.create({
     width: '50%',
     alignSelf: 'center'
   },
-  buttonText: {
+  followButtonText: {
     color: 'white',
     fontSize: 16,
     textAlign: 'center'
@@ -684,6 +709,31 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     justifyContent: 'flex-start',
     gap: 10,
+  },
+  logoutButton: {
+    position: 'absolute',
+    right: 370, 
+    top: 105,
+    backgroundColor: 'white',
+    borderRadius: 20,
+    padding: 8,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+  },
+  followButton: {
+    backgroundColor: '#007bff',
+    padding: 10,
+    borderRadius: 5,
+    marginTop: 10,
+  },
+  followingButton: {
+    backgroundColor: '#6c757d',
   },
 });
 
