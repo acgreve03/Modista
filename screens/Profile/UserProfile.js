@@ -198,9 +198,6 @@ const UserProfile = ({navigation}) => {
     const userRef = doc(db, 'users', userId);
     const docSnap = await getDoc(userRef);
     if (docSnap.exists()) {
-      const targetUserData = docSnap.data();
-      const isUserFollowing = targetUserData.followers?.includes(auth.currentUser.uid);
-      setIsFollowing(isUserFollowing);
       setSelectedUserProfile({ id: userId, ...docSnap.data()});
       setIsModalVisible(true);
     }
@@ -385,10 +382,7 @@ const UserProfile = ({navigation}) => {
               </Text>
             </View>
               {selectedUserProfile ? (
-                <PublicProfile 
-                  userProfile={selectedUserProfile}
-                  isFollowing={isFollowing}
-                  handleFollowToggle={handleFollowToggle} />
+                <PublicProfile userProfile={selectedUserProfile} />
               ) : (
                 <FlatList
                   data={modalType === 'followers' ? followersList : followingList}
@@ -609,16 +603,40 @@ const styles = StyleSheet.create({
     marginBottom: 0,
     paddingHorizontal: 20,
   },
-  followButton: {
-    backgroundColor: '#007bff',
+  profilePictureContainer: {
+    width: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
+    position: 'relative',
+  },
+  profileButtons: {
+    position: 'absolute',
+    right: '-30%',
+    top: '30%',
+    alignItems: 'center',
+  },
+  iconButton: {
+    backgroundColor: 'white',
+    padding: 8,
+    borderRadius: 20,
+    shadowColor: '#000',
+    shadowOffset: {
+        width: 0,
+        height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
+  },
+  savedPostsButton: {
+    backgroundColor: 'purple',
     padding: 10,
-    borderRadius: 5,
+    borderRadius: 20,
     marginTop: 10,
+    width: '50%',
+    alignSelf: 'center'
   },
-  followingButton: {
-    backgroundColor: '#6c757d',
-  },
-  followButtonText: {
+  buttonText: {
     color: 'white',
     fontSize: 16,
     textAlign: 'center'

@@ -6,7 +6,7 @@ import {  addDoc, doc, getDoc, collection, getDocs } from 'firebase/firestore';
 import { db, auth } from '../firebaseConfig';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { storage } from '../firebaseConfig'; // Adjust the path to your firebaseConfig file
-import { captureRef } from 'react-native-view-shot';
+import { captureRef, captureScreen } from 'react-native-view-shot';
 import SavedOutfitPage from '../screens/Profile/Saved';
 import * as Location from 'expo-location';
 
@@ -314,6 +314,7 @@ export const generateOutfit = async (closetItems, season, occasion) => {
             hasValidSeason &&
             (
                 item.season === "All" || // Matches if the season is "All"
+                item.season === "All seasons" ||
                 item.season === season || // Matches if the season matches directly
                 (item.season === "Fall/Winter" && (season === "Fall" || season === "Winter")) ||  // Matches for "Fall/Winter" and either Fall or Winter
                 (item.season === "Spring/Summer" && (season === "Spring" || season === "Summer")) // Matches for "Fall/Winter" and either Fall or Winter
@@ -370,9 +371,9 @@ export const generateOutfit = async (closetItems, season, occasion) => {
         if (!bottoms.length) {
           console.log('Missing bottom components for outfit.');
         }
-        if (!shoes.length) {
-          console.log('Missing shoes components for outfit.');
-        }
+        // if (!shoes.length) {
+        //   console.log('Missing shoes components for outfit.');
+        // }
         return {}; // Return an empty object if one of the essential items is missing
       }
   
@@ -639,58 +640,47 @@ export const OutfitDisplay = ({ generatedOutfit, modalVisible, setModalVisible, 
         }
     };
     
-    const saveCollage = async (collageRef) => {
+    const saveCollage = async () => {
         try {
-            console.log('Starting to capture the collage view...');
-            console.log('Collage ref:', collageRef); // Log the reference to check if it's valid
-            console.log(collageRef.current);  // Should not be null or undefined
-
-            // Check if the collageRef is valid before proceeding
-            if (collageRef && collageRef.current) {
-                // Wait for the next render cycle to ensure layout is complete
-                await new Promise(resolve => requestAnimationFrame(resolve));
+            console.log('Starting to capture the screen...');
+            
+            // Capture the screen
+            const uri = await captureScreen({
+                format: 'jpg', // Adjust format to your needs (e.g., 'png')
+                quality: 0.8,  // Adjust the quality (0 to 1)
+            });
     
-                const uri = await captureRef(collageRef, {
-                    quality: 0.8,  // Adjust quality if needed, no format is specified
-                });
-    
-                if (!uri) {
-                    console.log('Failed to capture collage: No URI returned.');
-                    throw new Error('Failed to capture collage.');
-                }
-    
-                console.log('Collage captured successfully. URI:', uri);
-    
-                // Convert the URI to a blob
-                const response = await fetch(uri);
-                const blob = await response.blob();
-    
-                console.log('Blob created from URI:', blob);
-    
-                // Upload the image to Firebase Storage
-                const storageRef = storage.ref(`collages/${Date.now()}`);
-                console.log('Uploading image to Firebase Storage with reference:', storageRef);
-    
-                await uploadBytes(storageRef, blob);
-    
-                console.log('Image uploaded successfully.');
-    
-                // Get the download URL for the uploaded image
-                const downloadURL = await getDownloadURL(storageRef);
-                console.log('Download URL for the uploaded image:', downloadURL);
-    
-                return downloadURL;
-            } else {
-                console.log('Error: Invalid collage reference.');
-                throw new Error('Collage reference is not valid.');
+            if (!uri) {
+                console.log('Failed to capture screen: No URI returned.');
+                throw new Error('Failed to capture screen.');
             }
+    
+            console.log('Screen captured successfully. URI:', uri);
+    
+            // Convert the URI to a blob
+            const response = await fetch(uri);
+            const blob = await response.blob();
+    
+            console.log('Blob created from URI:', blob);
+    
+            // Upload the image to Firebase Storage
+            const storageRef = ref(storage, `collages/${Date.now()}.jpg`);
+            console.log('Uploading image to Firebase Storage with reference:', storageRef);
+    
+            await uploadBytes(storageRef, blob);
+    
+            console.log('Image uploaded successfully.');
+    
+            // Get the download URL for the uploaded image
+            const downloadURL = await getDownloadURL(storageRef);
+            console.log('Download URL for the uploaded image:', downloadURL);
+    
+            return downloadURL;
         } catch (error) {
             console.error('Error saving collage:', error);
             Alert.alert('Error', 'Failed to save collage.');
         }
     };
-    
-    
 
     
     const renderCollage = (generatedOutfit) => {
