@@ -341,21 +341,22 @@ const PostDetailsScreen = ({ route, navigation }) => {
                         <Text style={styles.metricText}>{comments.length} </Text>
                     </TouchableOpacity>
 
-                    {/* Delete Button */}
-                    {post.userId === currentUser?.uid && (
-                        <TouchableOpacity style={styles.deleteButton} onPress={handleDeletePost}>
-                            <MaterialCommunityIcons name="trash-can-outline" size={25} color={"red"}/>
-                        </TouchableOpacity>
-                    )}
-
                     {/* Save Button */}
-                    <TouchableOpacity onPress={handleSavePost}>
+                     <TouchableOpacity onPress={handleSavePost}>
                         <MaterialCommunityIcons
                             name={isSaved ? "bookmark" : "bookmark-outline"}
                             size={24}
                             color={isSaved ? "#007AFF" : "#000"}
                         />
                     </TouchableOpacity>
+
+                    {/* Delete Button */}
+                    {post.userId === currentUser?.uid && (
+                    <TouchableOpacity style={styles.deleteButton} onPress={handleDeletePost}>
+                        <MaterialCommunityIcons name="trash-can-outline" size={25} color={"red"}/>
+                    </TouchableOpacity>
+                    )}
+
                 </View>
             </View>
 
@@ -534,7 +535,7 @@ const styles = StyleSheet.create({
     },
     deleteButton: {
         padding: 10,
-        paddingLeft: 240,
+        paddingLeft: 210,
         borderRadius: 5,
         marginTop: 20,
     },
