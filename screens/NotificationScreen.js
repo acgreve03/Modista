@@ -1,237 +1,520 @@
-import React from 'react';
-import { View, Text, SectionList, Image, StyleSheet, TouchableOpacity} from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { View, Text, FlatList, Image, StyleSheet, TouchableOpacity, Alert, Modal, ScrollView } from 'react-native';
+import { getFirestore, collection, query, where, orderBy, onSnapshot, addDoc, serverTimestamp, getDoc, doc, updateDoc } from 'firebase/firestore';
+import { getAuth } from 'firebase/auth';
+import { useNavigation } from '@react-navigation/native';
 
-//Dummy data to test with
-const notificationsData = [
-  {
-    id: '1',
-    user: 'jane_doe',
-    action: 'liked your photo',
-    timestamp: '2h',
-    userAvatar: 'https://picsum.photos/seed/avatar/50/50',
-    postThumbnail: 'https://picsum.photos/seed/post/100/100',
-    timeCategory: 'Today',
-  },
-  {
-    id: '2',
-    user: 'john.smith',
-    action: 'commented: "Stylish!"',
-    timestamp: '3h',
-    userAvatar: 'https://picsum.photos/seed/avatar/50/50',
-    postThumbnail: 'https://picsum.photos/seed/post/100/100',
-    timeCategory: 'Today',
-  },
-  {
-    id: '3',
-    user: 'BettyBoo',
-    action: 'started following you',
-    timestamp: '1d',
-    userAvatar: 'https://picsum.photos/seed/avatar/50/50',
-    timeCategory: 'This Week',
-  },
-  {
-    id: '4',
-    user: 'Alice._.Wonder',
-    action: 'liked your photo',
-    timestamp: '5d',
-    userAvatar: 'https://picsum.photos/seed/avatar/50/50',
-    postThumbnail: 'https://picsum.photos/seed/post/100/100',
-    timeCategory: 'This Week',
-  },
-  {
-    id: '5',
-    user: 'Bob_the_Builder',
-    action: 'commented: "Great look!"',
-    timestamp: '2w',
-    userAvatar:'https://picsum.photos/seed/avatar/50/50',
-    postThumbnail: 'https://picsum.photos/seed/post/100/100',
-    timeCategory: 'Last 30 days',
-  },
-  {
-    id: '6',
-    user: 'HatterMad',
-    action: 'started following you',
-    timestamp: '5w',
-    userAvatar: 'https://picsum.photos/seed/avatar/50/50',
-    timeCategory: 'Older',
-  },
-  {
-    id: '7',
-    user: 'Rabbit',
-    action: 'started following you',
-    timestamp: '1w',
-    userAvatar: 'https://picsum.photos/seed/avatar/50/50',
-    timeCategory: 'This Week',
-  },
-  {
-    id: '8',
-    user: 'Turtle',
-    action: 'liked your photo',
-    timestamp: '3w',
-    userAvatar: 'https://picsum.photos/seed/avatar/50/50',
-    postThumbnail: 'https://picsum.photos/seed/post/100/100',
-    timeCategory: 'Last 30 days',
-  },
-  {
-    id: '9',
-    user: 'AnonPanda',
-    action: 'started following you',
-    timestamp: '6w',
-    userAvatar: 'https://picsum.photos/seed/avatar/50/50',
-    timeCategory: 'Older',
-  },
-];
+const auth = getAuth();
+const db = getFirestore();
 
-/**
- * This function groups the notification data by the time category (today, this week, etc)
- * by iterating over the notification array and checking if a specific time category already exists
- * in the accumulator ('acc'). If it does, then it adds the notification to the existing category's data
- * and if not, then it creates a new category entry
- */
-const groupNotification = (data) => {
-  const grouped = data.reduce((acc, item) => {
-    const section = acc.find(section => section.title === item.timeCategory);
-    if (section) {
-      section.data.push(item);
-    } else {
-      acc.push({title: item.timeCategory, data: [item]});
+const NotificationItem = ({ notification, onFollowBack, currentUserFollowing, onUserPress }) => {
+  const navigation = useNavigation();
+  const isFollowNotification = notification.type === 'follow';
+  const alreadyFollowing = currentUserFollowing.includes(notification.senderId);
+  const showPostImage = notification.type === 'like' || notification.type === 'comment';
+
+  console.log('Rendering notification:', notification); // Debug log
+
+  const getNotificationText = () => {
+    switch (notification.type) {
+      case 'follow':
+        return 'started following you';
+      case 'like':
+        return 'liked your post';
+      case 'comment':
+        return `commented: "${notification.commentText}"`;
+      default:
+        return '';
     }
-    return acc;
-  }, []);
-  return grouped;
-};
-
-/**
- * Renders a single notification item using conditional rendering:
- * It shows a "follow back" button only for notifications where the action is " started following you"
- * It displays a thumbnail image of a post if the action involves interaction with a post (like or comment)
- */
-const NotificationItem = ({notification}) => (
-  <TouchableOpacity style = {styles.notificationContainer}>
-    {/* Displays the user's avatar */}
-    <Image source={{uri: notification.userAvatar}} style={styles.avatar} />
-
-    {/* Text container for the notification message */}
-    <View style={styles.notificationTextContainer}>
-      <Text style={styles.notificationText}>
-        <Text style={styles.username}>{notification.user}</Text> {notification.action}
-        <Text style={styles.timestamp}> {notification.timestamp}</Text>
-      </Text>
-    </View>
-
-    {/* Displays a "follow back button" only if someone followed you */}
-    {notification.action.includes("started following you") && (
-      <TouchableOpacity style={styles.followButton}>
-        <Text style={styles.followButtonText}>Follow Back</Text>
-      </TouchableOpacity>
-    )}
-
-    {/* Displays post thumbnail if it exists */}
-    {notification.postThumbnail && (
-      <View style={styles.pinContainer}>
-        <Image source={{ uri: notification.postThumbnail }} style={styles.pinImage} />
-      </View>
-    )}
-  </TouchableOpacity>
-);
-
-//Main screen component that displays a list of grouped notifications
-const NotificationScreen = () => {
-  //Group the notifications data by time categories ('Today', 'This week', etc)
-  const groupedData = groupNotification(notificationsData);
+  };
 
   return (
-    <View style={styles.container}>
-      <SectionList
-        sections={groupedData}
-        //determines how each notification looks
-        renderItem={({item}) => <NotificationItem notification={item} />}
-        // determines how the section headers look
-        renderSectionHeader={({section: {title}}) => (
-          <Text style={styles.sectionHeader}>{title}</Text>
-        )}
-        keyExtractor={(item) => item.id}
-        showsVerticalScrollIndicator={false}
+    <View style={styles.notificationContainer}>
+      <TouchableOpacity onPress={() => onUserPress(notification.senderId)}>
+        <Image 
+          source={{ uri: notification.senderProfilePic || 'https://via.placeholder.com/40' }}
+          style={styles.avatar}
         />
+      </TouchableOpacity>
+
+      <View style={styles.notificationTextContainer}>
+        <Text style={styles.notificationText}>
+          <Text 
+            style={styles.username} 
+            onPress={() => onUserPress(notification.senderId)}
+          >
+            {notification.senderName}
+          </Text>
+          {' '}{getNotificationText(notification)}
+        </Text>
+        <Text style={styles.timestamp}>
+          {getRelativeTime(notification.createdAt?.toDate())}
+        </Text>
+      </View>
+
+      {showPostImage && notification.postImage && (
+        <TouchableOpacity 
+          style={styles.postImageContainer}
+          onPress={() => navigation.navigate('PostDetailsScreen', { postId: notification.postId })}
+        >
+          <Image 
+            source={{ uri: notification.postImage }}
+            style={styles.postThumbnail}
+            resizeMode="cover"
+          />
+        </TouchableOpacity>
+      )}
+
+      {isFollowNotification && !alreadyFollowing && (
+        <TouchableOpacity 
+          style={styles.followButton}
+          onPress={() => onFollowBack(notification)}
+        >
+          <Text style={styles.followButtonText}>Follow Back</Text>
+        </TouchableOpacity>
+      )}
     </View>
   );
 };
 
-//customization and layouts for the screen page and its components
+const NotificationScreen = () => {
+  const [notifications, setNotifications] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [currentUserFollowing, setCurrentUserFollowing] = useState([]);
+  const [selectedUserProfile, setSelectedUserProfile] = useState(null);
+  const [isModalVisible, setIsModalVisible] = useState(false);
+  const [isFollowing, setIsFollowing] = useState(false);
+
+  const fetchCurrentUserFollowing = async () => {
+    try {
+      const userRef = doc(db, 'users', auth.currentUser.uid);
+      const userSnap = await getDoc(userRef);
+      if (userSnap.exists()) {
+        setCurrentUserFollowing(userSnap.data().following || []);
+      }
+    } catch (error) {
+      console.error('Error fetching following list:', error);
+    }
+  };
+
+  const fetchNotifications = () => {
+    if (!auth.currentUser) return;
+
+    const notificationsRef = collection(db, 'notifications');
+    const q = query(
+      notificationsRef,
+      where('recipientId', '==', auth.currentUser.uid),
+      orderBy('createdAt', 'desc')
+    );
+
+    return onSnapshot(q, (snapshot) => {
+      const notificationsList = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }));
+      setNotifications(notificationsList);
+      setLoading(false);
+    });
+  };
+
+  useEffect(() => {
+    const unsubscribe = fetchNotifications();
+    fetchCurrentUserFollowing();
+    return () => unsubscribe && unsubscribe();
+  }, []);
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await fetchCurrentUserFollowing();
+    setRefreshing(false);
+  };
+
+  const handleFollowBack = async (notification) => {
+    try {
+      console.log('Starting follow back process...'); // Debug log
+
+      const currentUserRef = doc(db, 'users', auth.currentUser.uid);
+      const targetUserRef = doc(db, 'users', notification.senderId);
+      
+      // Get both users' data
+      const [currentUserSnap, targetUserSnap] = await Promise.all([
+        getDoc(currentUserRef),
+        getDoc(targetUserRef)
+      ]);
+
+      console.log('Current user data:', currentUserSnap.data()); // Debug log
+      console.log('Target user data:', targetUserSnap.data()); // Debug log
+
+      if (currentUserSnap.exists() && targetUserSnap.exists()) {
+        const currentUserData = currentUserSnap.data();
+        const targetUserData = targetUserSnap.data();
+
+        // Get current following/followers arrays or empty arrays if they don't exist
+        const currentFollowing = currentUserData.following || [];
+        const targetFollowers = targetUserData.followers || [];
+
+        // Check if already following
+        if (currentFollowing.includes(notification.senderId)) {
+          console.log('Already following this user');
+          return;
+        }
+
+        // Update following/followers lists
+        const updatedFollowing = [...currentFollowing, notification.senderId];
+        const updatedFollowers = [...targetFollowers, auth.currentUser.uid];
+
+        console.log('Updating following/followers lists...'); // Debug log
+
+        // Update both users' documents
+        await Promise.all([
+          updateDoc(currentUserRef, { following: updatedFollowing }),
+          updateDoc(targetUserRef, { followers: updatedFollowers })
+        ]);
+
+        // Create notification with correct user data
+        const notificationData = {
+          type: 'follow',
+          senderId: auth.currentUser.uid,
+          recipientId: notification.senderId,
+          senderName: currentUserData.userName, // Use the correct field from your user data
+          senderProfilePic: currentUserData.profilePictureUrl, // Use the correct field from your user data
+          createdAt: serverTimestamp()
+        };
+
+        console.log('Creating notification with data:', notificationData); // Debug log
+
+        const notificationsRef = collection(db, 'notifications');
+        await addDoc(notificationsRef, notificationData);
+
+        // Update local state
+        setCurrentUserFollowing(prevFollowing => [...prevFollowing, notification.senderId]);
+
+        console.log('Follow back process completed successfully'); // Debug log
+      }
+    } catch (error) {
+      console.error('Error in handleFollowBack:', error);
+      Alert.alert('Error', 'Failed to follow user. Please try again.');
+    }
+  };
+
+  const handleUserPress = async (userId) => {
+    console.log('Opening profile for user:', userId); // Debug log
+    try {
+      const userRef = doc(db, 'users', userId);
+      const docSnap = await getDoc(userRef);
+      
+      if (docSnap.exists()) {
+        const userData = docSnap.data();
+        console.log('Fetched user data:', userData); // Debug log
+        setSelectedUserProfile({ id: userId, ...userData });
+        setIsFollowing(currentUserFollowing.includes(userId));
+        setIsModalVisible(true);
+      }
+    } catch (error) {
+      console.error('Error fetching user profile:', error);
+    }
+  };
+
+  const handleFollowToggle = async (userId) => {
+    try {
+      const currentUserRef = doc(db, 'users', auth.currentUser.uid);
+      const targetUserRef = doc(db, 'users', userId);
+      
+      const [currentUserSnap, targetUserSnap] = await Promise.all([
+        getDoc(currentUserRef),
+        getDoc(targetUserRef)
+      ]);
+
+      if (currentUserSnap.exists() && targetUserSnap.exists()) {
+        const currentUserData = currentUserSnap.data();
+        const targetUserData = targetUserSnap.data();
+        const currentFollowing = currentUserData.following || [];
+        const targetFollowers = targetUserData.followers || [];
+
+        if (currentFollowing.includes(userId)) {
+          // Unfollow logic
+          const updatedFollowing = currentFollowing.filter(id => id !== userId);
+          const updatedFollowers = targetFollowers.filter(id => id !== auth.currentUser.uid);
+
+          await Promise.all([
+            updateDoc(currentUserRef, { following: updatedFollowing }),
+            updateDoc(targetUserRef, { followers: updatedFollowers })
+          ]);
+
+          setCurrentUserFollowing(updatedFollowing);
+          setIsFollowing(false);
+        } else {
+          // Follow logic
+          const updatedFollowing = [...currentFollowing, userId];
+          const updatedFollowers = [...targetFollowers, auth.currentUser.uid];
+
+          await Promise.all([
+            updateDoc(currentUserRef, { following: updatedFollowing }),
+            updateDoc(targetUserRef, { followers: updatedFollowers })
+          ]);
+
+          // Create follow notification
+          const notificationData = {
+            type: 'follow',
+            senderId: auth.currentUser.uid,
+            recipientId: userId,
+            senderName: currentUserData.userName,
+            senderProfilePic: currentUserData.profilePictureUrl,
+            createdAt: serverTimestamp()
+          };
+
+          await addDoc(collection(db, 'notifications'), notificationData);
+          setCurrentUserFollowing(updatedFollowing);
+          setIsFollowing(true);
+        }
+      }
+    } catch (error) {
+      console.error('Error in handleFollowToggle:', error);
+      Alert.alert('Error', 'Failed to update follow status');
+    }
+  };
+
+  if (loading) {
+    return (
+      <View style={styles.container}>
+        <Text>Loading notifications...</Text>
+      </View>
+    );
+  }
+
+  return (
+    <View style={styles.container}>
+      <FlatList
+        data={notifications}
+        renderItem={({item}) => (
+          <NotificationItem 
+            notification={item}
+            onFollowBack={handleFollowBack}
+            currentUserFollowing={currentUserFollowing}
+            onUserPress={handleUserPress}
+          />
+        )}
+        keyExtractor={item => item.id}
+        refreshing={refreshing}
+        onRefresh={onRefresh}
+      />
+
+      <Modal
+        visible={isModalVisible}
+        animationType="slide"
+        onRequestClose={() => setIsModalVisible(false)}
+      >
+        <View style={styles.modalContent}>
+          <TouchableOpacity 
+            onPress={() => setIsModalVisible(false)} 
+            style={styles.backArrowContainer}
+          >
+            <Text style={styles.backArrowText}>←</Text>
+          </TouchableOpacity>
+          
+          {selectedUserProfile && (
+            <View style={styles.publicProfileContainer}>
+              <Image 
+                source={{ uri: selectedUserProfile.profilePictureUrl || 'https://via.placeholder.com/150' }}
+                style={styles.publicProfilePicture}
+              />
+              <Text style={styles.publicName}>
+                {`${selectedUserProfile.firstName} ${selectedUserProfile.lastName}`}
+              </Text>
+              <Text style={styles.publicUserName}>{selectedUserProfile.userName}</Text>
+              <Text style={styles.publicBio}>{selectedUserProfile.bio}</Text>
+
+              <View style={styles.stats}>
+                <Text style={styles.stat}>
+                  {selectedUserProfile.followers?.length || 0} Followers
+                </Text>
+                <Text style={styles.stat}>
+                  {selectedUserProfile.following?.length || 0} Following
+                </Text>
+              </View>
+
+              {selectedUserProfile.id !== auth.currentUser?.uid && (
+                <TouchableOpacity 
+                  style={[styles.followButton, isFollowing && styles.followingButton]}
+                  onPress={() => handleFollowToggle(selectedUserProfile.id)}
+                >
+                  <Text style={styles.followButtonText}>
+                    {isFollowing ? 'Following' : 'Follow'}
+                  </Text>
+                </TouchableOpacity>
+              )}
+            </View>
+          )}
+        </View>
+      </Modal>
+    </View>
+  );
+};
+
+const getRelativeTime = (date) => {
+  if (!date) return '';
+  
+  const now = new Date();
+  const diffSeconds = Math.floor((now - date) / 1000);
+  
+  if (diffSeconds < 60) return 'just now';
+  if (diffSeconds < 3600) return `${Math.floor(diffSeconds / 60)}m`;
+  if (diffSeconds < 86400) return `${Math.floor(diffSeconds / 3600)}h`;
+  return `${Math.floor(diffSeconds / 86400)}d`;
+};
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#fff",
-  },
-  sectionHeader: {
-    fontFamily: 'Helvetica',
-    fontSize: 18,
-    fontWeight: 'bold',
-    paddingVertical: 8,
-    paddingHorizontal: 15,
-    backgroundColor: '#f4f4f4',
-    color: '#333',
+    backgroundColor: '#fff',
   },
   notificationContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: 15,
-    paddingHorizontal: 20,
+    padding: 15,
     borderBottomWidth: 1,
     borderBottomColor: '#e0e0e0',
   },
   avatar: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    marginRight: 10,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    marginRight: 12,
   },
   notificationTextContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
     flex: 1,
+    marginRight: 10,
   },
   notificationText: {
-    fontFamily: 'Helvetica',
-    fontSize: 16,
+    fontSize: 14,
     color: '#333',
+    lineHeight: 18,
   },
   username: {
-    fontFamily: 'Helvetica',
-    fontWeight: 'bold',
+    fontWeight: '600',
+    color: '#000',
+    textDecorationLine: 'none', // Remove default underline
   },
   timestamp: {
-    fontFamily: 'Helvetica',
-    fontSize: 14,
-    color: '#888',
-    marginTop: 4,
-    marginLeft: 5,
+    color: '#666',
+    fontSize: 12,
+    marginTop: 2,
   },
-  pinContainer: {
+  followButton: {
+    backgroundColor: '#0095f6',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 6,
+    marginLeft: 'auto',
+  },
+  followButtonText: {
+    color: '#fff',
+    fontWeight: '600',
+    fontSize: 13,
+  },
+  emptyContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  emptyText: {
+    color: '#666',
+    fontSize: 16,
+  },
+  postImageContainer: {
     width: 50,
     height: 50,
+    marginLeft: 'auto',
+    marginRight: 10,
     borderRadius: 5,
     overflow: 'hidden',
-    marginLeft: 10,
+    backgroundColor: '#f0f0f0',
   },
-  pinImage: {
+  postThumbnail: {
     width: '100%',
     height: '100%',
     borderRadius: 5,
   },
+  modalContent: {
+    flex: 1,
+    backgroundColor: 'white',
+    padding: 20,
+    paddingTop: 60,
+  },
+  backArrowContainer: {
+    marginRight: 10,
+    padding: 5,
+  },
+  backArrowText: {
+    fontSize: 30,
+    fontWeight: 'bold',
+    color: 'black',
+    marginTop: 15,
+  },
+  publicProfileContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'flex-start',
+    paddingTop: 50,
+    backgroundColor: 'white',
+  },
+  publicProfilePicture: {
+    width: 100,
+    height: 100,
+    borderRadius: 60,
+    borderWidth: 2,
+    borderColor: '#ddd',
+    marginBottom: 15,
+  },
+  publicName: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#333',
+    textAlign: 'center',
+    marginBottom: 8,
+    fontFamily: 'Helvetica',
+  },
+  publicUserName: {
+    fontSize: 18,
+    color: '#666',
+    textAlign: 'center',
+    marginBottom: 12,
+    fontFamily: 'Helvetica',
+  },
+  publicBio: {
+    fontSize: 16,
+    color: '#666',
+    textAlign: 'center',
+    marginBottom: 0,
+    paddingHorizontal: 20,
+    fontFamily: 'Helvetica',
+  },
+  stats: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    width: '100%',
+    paddingHorizontal: 20,
+    marginVertical: 10,
+  },
+  stat: {
+    color: '#333',
+    fontSize: 16,
+    fontFamily: 'Helvetica',
+  },
   followButton: {
-    backgroundColor: 'blue',
-    paddingVertical: 8,
-    paddingHorizontal: 15,
-    borderRadius: 8,
-    marginLeft: 10,
+    backgroundColor: '#007bff',
+    padding: 10,
+    borderRadius: 5,
+    marginTop: 10,
+  },
+  followingButton: {
+    backgroundColor: '#6c757d',
   },
   followButtonText: {
     color: 'white',
-    fontFamily: 'Helvetica',
-    fontSize: 14,
-    fontWeight: 'bold',
+    fontSize: 16,
+    textAlign: 'center'
   },
 });
 

@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, Image, TouchableOpacity, ActivityIndicator, ScrollView, Modal, Button, FlatList } from 'react-native';
-import Outfits from './Outfits';
-import Closet from './Closet';
-import Saved from './Saved';
-import { doc, getDoc } from 'firebase/firestore';
+import { View, Text, StyleSheet, Image, TouchableOpacity, ActivityIndicator, ScrollView, Modal, FlatList, Dimensions } from 'react-native';
+import Outfits from './Outfits'; // Import the OutfitsGrid component
+import Closet from './Closet'; // Import the Closet component
+import Saved from './Saved'; // Import the Closet component
+import { doc, getDoc, onSnapshot, updateDoc, collection, query, where, getDocs } from 'firebase/firestore';
 import { db } from '../../firebaseConfig';
 import { auth } from '../../firebaseConfig';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -18,6 +18,8 @@ const UserProfile = ({navigation}) => {
   const [selectedUserProfile, setSelectedUserProfile] = useState(null);
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [modalType, setModalType] = useState('followers');
+  const [isFollowing, setIsFollowing] = useState(false);
+  const [posts, setPosts] = useState([]);
 
   useFocusEffect(
     React.useCallback(() => {
@@ -92,6 +94,94 @@ const UserProfile = ({navigation}) => {
     }
   };
 
+  const handleFollowToggle = async (userId) => {
+    try {
+      const currentUserRef = doc(db, 'users', auth.currentUser.uid);
+      const targetUserRef = doc(db, 'users', userId);
+      
+      const currentUserSnap = await getDoc(currentUserRef);
+      const targetUserSnap = await getDoc(targetUserRef);
+
+      if (currentUserSnap.exists() && targetUserSnap.exists()) {
+        const currentUserData = currentUserSnap.data();
+        const targetUserData = targetUserSnap.data();
+
+        const currentFollowing = currentUserData.following || [];
+        const targetFollowers = targetUserData.followers || [];
+
+        if (currentFollowing.includes(userId)) {
+          // Unfollow logic
+          const updatedFollowing = currentFollowing.filter(id => id !== userId);
+          const updatedFollowers = targetFollowers.filter(id => id !== auth.currentUser.uid);
+          
+          await updateDoc(currentUserRef, { following: updatedFollowing});
+          await updateDoc(targetUserRef, { followers: updatedFollowers});
+          
+          setSelectedUserProfile(prevState => ({
+            ...prevState,
+            followers: updatedFollowers,
+          }));
+          setIsFollowing(false);
+        } else {
+          // Follow logic
+          const updatedFollowing = [...currentFollowing, userId];
+          const updatedFollowers = [...targetFollowers, auth.currentUser.uid];
+          
+          await updateDoc(currentUserRef, { following: updatedFollowing});
+          await updateDoc(targetUserRef, { followers: updatedFollowers});
+          
+          // Create notification when following
+          await addDoc(collection(db, 'notifications'), {
+            type: 'follow',
+            senderId: auth.currentUser.uid,
+            recipientId: userId,
+            senderName: currentUserData.userName || auth.currentUser.displayName || 'User',
+            senderProfilePic: currentUserData.profilePictureUrl || auth.currentUser.photoURL || 'https://via.placeholder.com/40',
+            createdAt: serverTimestamp()
+          });
+          
+          setSelectedUserProfile(prevState => ({
+            ...prevState,
+            followers: updatedFollowers,
+          }));
+          setIsFollowing(true);
+        }
+      }
+    } catch (error) {
+      console.error('Error toggling follow:', error);
+    }
+  };
+
+  useEffect(() => {
+    const unsubscribeFollowers = onSnapshot(
+      doc(db, 'users', auth.currentUser.uid),
+      (docSnap) => {
+        if (docSnap.exists()) {
+          const followers = docSnap.data().followers || [];
+          setFollowersList(followers);
+        }
+      },
+      (error) => console.error("Error fetching real-time followers: ", error)
+    );
+
+    const unsubscribeFollowing = onSnapshot (
+      doc(db, 'users', auth.currentUser.uid),
+      (docSnap) => {
+        if (docSnap.exists()) {
+          const following = docSnap.data().following || [];
+          setFollowingList(following);
+        }
+      },
+      (error) => console.error("Error fetching real-time fllowing: ", error)
+    );
+
+    return () => {
+      unsubscribeFollowers();
+      unsubscribeFollowing();
+    };
+  }, []);
+
+  //Open selected user's profile
   const openUserProfileModal = async (userId) => {
     const userRef = doc(db, 'users', userId);
     const docSnap = await getDoc(userRef);
@@ -105,6 +195,28 @@ const UserProfile = ({navigation}) => {
     setIsModalVisible(false);
     setSelectedUserProfile(null);
   };
+
+  //Fetch posts for the selected user
+  const fetchUserPosts = async (userId) => {
+  try {
+    const postsRef = collection(db, 'posts');
+    const q = query(postsRef, where('userId', '==', userId));
+    const querySnapshot = await getDocs(q);
+    const postsData = querySnapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data()
+    }));
+    setPosts(postsData);
+  } catch (error) {
+    console.error("Error fetching posts:", error);
+  }
+  };
+
+useEffect(() => {
+  if (selectedUserProfile) {
+    fetchUserPosts(selectedUserProfile.id);
+  }
+  }, [selectedUserProfile]);
 
   if (loading) {
     return (
@@ -132,6 +244,58 @@ const UserProfile = ({navigation}) => {
     }
   };
 
+  const PublicProfile = ({ userProfile, isFollowing, handleFollowToggle}) => (
+    <View style={styles.publicProfileContainer}>
+      <View style={styles.publicProfilePictureWrapper}>
+        <Image source={{ uri: userProfile?.profilePictureUrl || 'https://via.placeholder.com/150'}} style={styles.publicProfilePicture}
+        />
+      </View>
+      <Image source={{ uri: userProfile?.headerImageUrl || 'https://via.placeholder.com/600x200'}} style={styles.publicHeaderImage}
+      />
+      <Text style={styles.publicName}>{`${userProfile?.firstName} ${userProfile.lastName}`}</Text>
+      <Text style={styles.publicUserName}>{userProfile?.userName}</Text>
+      <Text style={styles.publicBio}>{userProfile?.bio}</Text>
+  
+      <View style={styles.stats}>
+        <Text style={styles.stat}>{userProfile?.followers?.length || 0} Followers</Text>
+        <Text style={styles.stat}>{userProfile?.following?.length || 0} Following</Text>
+      </View>
+  
+      <TouchableOpacity style={[styles.followButton, isFollowing && styles.followingButton]} onPress={() => handleFollowToggle(userProfile.id)}>
+        <Text style={styles.followButtonText}>{isFollowing ? 'Unfollow' : 'Follow'}</Text>
+      </TouchableOpacity>
+  
+      <View style={styles.postsContainer}>
+        <Text style={styles.postsTitle}>Posts</Text>
+        <FlatList
+          data={posts}
+          renderItem={({ item }) => (
+            <TouchableOpacity
+              onPress={() => {
+                setIsModalVisible(false);
+                setSelectedUserProfile(null);
+                setTimeout(() => {
+                  navigation.navigate('PostDetailsScreen', {
+                    postId: item.id, userId: item.userId
+                  });
+                }, 100);
+              }}
+            >
+              <Image source={{ uri: item.itemImage }} style={styles.postImage} />
+            </TouchableOpacity>
+          )}
+          keyExtractor={(item) => item.id}
+          numColumns={2}
+          contentContainerStyle={styles.grid}
+          columnWrapperStyle={{
+            justifyContent: 'flex-start',
+          }}
+          showsVerticalScrollIndicator={false}
+        />
+      </View>
+    </View>
+  );
+  
   return  (
     <ScrollView contentContainerStyle={styles.scrollViewContainer}>
       <View style={styles.container}>
@@ -151,18 +315,10 @@ const UserProfile = ({navigation}) => {
           <View style={styles.profileButtons}>
             {/* Edit Profile Button */}
             <TouchableOpacity
-              style={styles.iconButton}
+              style={styles.editButton}
               onPress={() => navigation.navigate('ProfileEdit')}
             >
               <MaterialCommunityIcons name="pencil" size={24} color="black" />
-            </TouchableOpacity>
-
-            {/* Saved Posts Button */}
-            <TouchableOpacity
-              style={[styles.iconButton, { marginTop: 10 }]}
-              onPress={() => navigation.navigate('SavedPosts')}
-            >
-              <MaterialCommunityIcons name="bookmark" size={24} color="black" />
             </TouchableOpacity>
           </View>
         </View>
@@ -237,29 +393,14 @@ const UserProfile = ({navigation}) => {
   );
 };
 
-const PublicProfile = ({ userProfile}) => (
-  <View style={styles.publicProfileContainer}>
-    <Image source={{ uri: userProfile?.profilePictureUrl || 'https://via.placeholder.com/150'}} style={styles.publicProfilePicture}
-    />
-    <Text style={styles.publicName}>{`${userProfile?.firstName} ${userProfile.lastName}`}</Text>
-    <Text style={styles.publicUserName}>{userProfile?.userName}</Text>
-    <Text style={styles.publicBio}>{userProfile?.bio}</Text>
-
-    <View style={styles.stats}>
-      <Text style={styles.stat}>{userProfile?.followers?.length || 0} Followers</Text>
-      <Text style={styles.stat}>{userProfile?.following?.length || 0} Following</Text>
-    </View>
-  </View>
-);
-
 const styles = StyleSheet.create({
   scrollViewContainer: {
     padding: 0,
   },
   container: {
-      flex: 1,
-      backgroundColor: 'white',
-      alignItems: 'center',
+    flex: 1,
+    backgroundColor: 'white',
+    alignItems: 'center',
   },
   loadingContainer: {
     flex: 1,
@@ -267,35 +408,42 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   headerContainer: {
-      width: '100%',
-      alignItems: 'center',
-      marginBottom: 10,
+    width: '100%',
+    alignItems: 'center',
+    marginBottom: 10,
   },
   headerImage: {
-      width: '100%',
-      height: 130,
-      resizeMode: 'cover',
+    width: '100%',
+    height: 130,
+    resizeMode: 'cover',
+  },
+  profileWrapper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    position: 'relative',
+    width: '100%',
   },
   profilePicture: {
-      width: 100,
-      height: 100,
-      borderRadius: 50,
-      borderWidth: 3,
-      borderColor: 'white',
-      marginTop: -40,
-      zIndex: 1,
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    borderWidth: 3,
+    borderColor: 'white',
+    marginTop: -40,
+    zIndex: 1,
   },
   name: {
-      color: '#333',
-      fontSize: 24,
-      fontWeight: 'bold',
-      marginTop: 5,
+    color: '#333',
+    fontSize: 24,
+    fontWeight: 'bold',
+    marginTop: 5,
   },
   bio: {
-      color: '#666',
-      fontSize: 16,
-      marginVertical: 3,
-      textAlign: 'center',
+    color: '#666',
+    fontSize: 16,
+    marginVertical: 3,
+    textAlign: 'center',
   },
   userName: {
     color: '#666',
@@ -304,40 +452,40 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     },
   stats: {
-      flexDirection: 'row',
-      justifyContent: 'space-around',
-      width: '100%',
-      paddingHorizontal: 20,
-      marginVertical: 10,
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    width: '100%',
+    paddingHorizontal: 20,
+    marginVertical: 10,
   },
   stat: {
-      color: '#333',
-      fontSize: 16,
+    color: '#333',
+    fontSize: 16,
   },
   tabsContainer: {
-      flexDirection: 'row',
-      justifyContent: 'space-around',
-      width: '100%',
-      paddingVertical: 10,
-      borderBottomWidth: 1,
-      borderBottomColor: '#eee',
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    width: '100%',
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#eee',
   },
   tab: {
-      paddingVertical: 10,
-      paddingHorizontal: 20,
+    paddingVertical: 10,
+    paddingHorizontal: 20,
   },
   activeTab: {
-      borderBottomWidth: 2,
-      borderBottomColor: '#333',
+    borderBottomWidth: 2,
+    borderBottomColor: '#333',
   },
   tabText: {
-      color: '#333',
-      fontSize: 16,
+    color: '#333',
+    fontSize: 16,
   },
   tabContent: {
-      color: '#333',
-      fontSize: 18,
-      marginTop: 20,
+    color: '#333',
+    fontSize: 18,
+    marginTop: 20,
   },
   modalContent: {
     flex: 1,
@@ -396,13 +544,25 @@ const styles = StyleSheet.create({
     paddnigTop: 50,
     backgrouondColor: 'white',
   },
+  publicHeaderImage: {
+    width: '100%',
+    height: 130,
+    resizeMode: 'cover',
+    position: 'relative',
+  },
   publicProfilePicture: {
     width: 100,
     height: 100,
     borderRadius: 60,
     borderWidth: 2,
-    borderColor: '#ddd',
+    borderColor: 'white',
     marginBottom: 15,
+    zIndex: 1,
+  },
+  publicProfilePictureWrapper: {
+    alignItems: 'center',
+    position: 'absolute',
+    bottom: 585,
   },
   publicName: {
     fontSize: 24,
@@ -410,6 +570,7 @@ const styles = StyleSheet.create({
     color: '#333',
     textAlign: 'center',
     marginBottom: 8,
+    marginTop: 60,
   },
   publicUserName: {
     fontSize: 18,
@@ -459,9 +620,53 @@ const styles = StyleSheet.create({
   },
   buttonText: {
     color: 'white',
-    textAlign: 'center',
-    fontWeight: 'bold'
-  }
+    fontSize: 16,
+    textAlign: 'center'
+  },
+  profileButtons: {
+    position: 'absolute',
+    right: 20,
+    top: -30,
+  },
+  editButton: {
+    backgroundColor: 'white',
+    borderRadius: 20,
+    padding: 8,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+  },
+  postsContainer: {
+    backgroundColor: '#fff',
+    flex: 1,
+    alignItems: 'flex-start',
+    margin: 5,
+  },
+  postsTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginBottom: 10,
+    textAlign: 'left',
+  },
+  postImage: {
+    borderRadius: 10,
+    marginBottom: 10,
+    width: 140,
+    height: 140,
+    resizeMode: 'cover',
+    alignSelf: 'flex-start',
+  },
+  grid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'flex-start',
+    gap: 10,
+  },
 });
 
 export default UserProfile;
